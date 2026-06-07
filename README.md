@@ -1,5 +1,11 @@
 # Rapport d'Inspection — Gestion
 
+[![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/v1.0.0/Rapport.Inspection.Setup.1.0.0.exe)
+[![Dernière version](https://img.shields.io/github/v/release/haythembenjima/rapports?style=for-the-badge&label=version)](https://github.com/haythembenjima/rapports/releases/latest)
+
+> **⬇️ Télécharger l'application Windows :** [**Rapport Inspection — Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/download/v1.0.0/Rapport.Inspection.Setup.1.0.0.exe)
+> &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
+
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
 (discipline **Gestion**, modèle officiel du Ministère de l'Éducation tunisien).
 
