@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapport d'Évaluation - Inspection Pédagogique</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <!-- Export PDF dédié -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Export Word (.docx natif) -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@9.0.2/build/index.umd.js"></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
+
+    <style>
+        body { font-family: "Times New Roman", Times, serif; background-color: #f3f4f6; }
+        .scale-btn:checked + label { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        input::placeholder, textarea::placeholder { font-style: italic; color: #a0aec0; font-weight: normal; }
+
+        /* Fix Chrome Autofill */
+        input:-webkit-autofill, textarea:-webkit-autofill, select:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 1000px white inset !important;
+            -webkit-text-fill-color: black !important;
+            background-color: white !important;
+        }
+        input:focus, textarea:focus, select:focus { outline: none !important; box-shadow: none !important; background-color: transparent !important; }
+
+        .magic-btn { opacity: 0.3; transition: opacity 0.3s, transform 0.2s; cursor: pointer; }
+        .group:hover .magic-btn { opacity: 1; }
+        .magic-btn:hover { transform: scale(1.2); color: #7e22ce; }
+
+        .print-score { display: none; }
+
+        /* Champ requis non rempli (validation visuelle) */
+        .field-error { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+
+        /* Toast notifications */
+        #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: .5rem; font-family: ui-sans-serif, system-ui, sans-serif; }
+        .toast { min-width: 240px; max-width: 360px; padding: .75rem 1rem; border-radius: .5rem; color: #fff; box-shadow: 0 10px 25px rgba(0,0,0,.15); font-size: .85rem; display: flex; align-items: center; gap: .5rem; animation: toastIn .25s ease; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(20px);} to { opacity: 1; transform: translateX(0);} }
+        .toast-success { background: #16a34a; } .toast-error { background: #dc2626; } .toast-info { background: #2563eb; } .toast-warn { background: #d97706; }
+
+        /* Rendu commun à l'impression ET à l'export PDF */
+        .render-print .no-print,
+        .render-print .no-print-scale,
+        .render-print .magic-btn,
+        .render-print #app-nav,
+        .render-print #view-stats,
+        .render-print #auth-overlay,
+        .render-print #admin-actions,
+        .render-print #local-mode-alert { display: none !important; }
+        .render-print .radio-group { display: none !important; }
+        .render-print .print-score { display: inline !important; }
+
+        @media print {
+            @page { margin: 0; size: auto; }
+            body { margin: 1.5cm !important; background-color: white; font-size: 10pt; line-height: 1.1; -webkit-print-color-adjust: exact; }
+            .no-print, .no-print-scale, #auth-overlay, #app-nav, #view-stats, .magic-btn, #admin-actions, #local-mode-alert, #toast-container { display: none !important; }
+            .shadow-lg { box-shadow: none; border: none; }
+            input, textarea, select { border: none; background: transparent !important; resize: none; font-weight: bold; overflow: hidden; appearance: none; -webkit-appearance: none; padding: 0; margin: 0; }
+            input[type="date"]::-webkit-inner-spin-button, input[type="date"]::-webkit-calendar-picker-indicator { display: none; -webkit-appearance: none; }
+            input[type="date"] { -moz-appearance: textfield; }
+            .mb-6 { margin-bottom: 0.25rem !important; } .mb-4 { margin-bottom: 0.2rem !important; }
+            .p-8 { padding: 0 !important; } .p-4 { padding: 0.25rem !important; } .p-2 { padding: 0.1rem 0.2rem !important; }
+            .radio-group { display: none; } #view-form { display: block !important; }
+            .print-score { display: inline !important; }
+            .page-break { page-break-before: always; }
+            table { border-collapse: collapse; }
+        }
+    </style>
+</head>
+<body class="text-black">
+
+    <!-- TOASTS -->
+    <div id="toast-container" class="no-print"></div>
+
+    <!-- MODALE DE SAISIE (remplace window.prompt, compatible Electron) -->
+    <div id="ui-prompt-overlay" class="no-print hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:none;align-items:center;justify-content:center;font-family:ui-sans-serif,system-ui,sans-serif;">
+        <div style="background:#fff;border-radius:.5rem;box-shadow:0 20px 50px rgba(0,0,0,.3);width:90%;max-width:380px;padding:1.25rem;">
+            <p id="ui-prompt-msg" style="font-weight:600;margin-bottom:.75rem;color:#1f2937;font-size:.9rem;"></p>
+            <input id="ui-prompt-input" type="text" style="width:100%;border:1px solid #d1d5db;border-radius:.375rem;padding:.5rem .6rem;font-size:.9rem;outline:none;" autocomplete="off">
+            <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem;">
+                <button id="ui-prompt-cancel" style="padding:.4rem .9rem;border-radius:.375rem;background:#e5e7eb;color:#374151;font-size:.85rem;font-weight:600;">Annuler</button>
+                <button id="ui-prompt-ok" style="padding:.4rem .9rem;border-radius:.375rem;background:#2563eb;color:#fff;font-size:.85rem;font-weight:600;">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <div id="app-nav" class="max-w-[21cm] mx-auto mt-4 px-4 no-print flex flex-wrap gap-2 justify-between items-center hidden">
+        <div class="flex gap-2">
+            <button id="tab-form" onclick="window.switchTab('form')" class="px-6 py-2 rounded-t-lg font-bold bg-blue-800 text-white shadow transition font-sans">
+                <i class="fas fa-edit"></i> Saisie Rapport
+            </button>
+            <button id="tab-stats" onclick="window.switchTab('stats')" class="px-6 py-2 rounded-t-lg font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 shadow transition font-sans">
+                <i class="fas fa-chart-line"></i> Historique
+            </button>
+        </div>
+        <div class="flex gap-2 items-center font-sans">
+            <div id="draft-indicator" class="text-xs font-bold bg-white px-3 py-1 rounded shadow text-gray-400 hidden">
+                <i class="fas fa-cloud"></i> Brouillon sauvegardé
+            </div>
+            <div id="status-indicator" class="text-sm font-bold bg-white px-3 py-1 rounded shadow text-green-600">
+                <i class="fas fa-circle-notch fa-spin"></i> Connexion...
+            </div>
+            <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
+                <i class="fas fa-lock"></i> Admin
+            </button>
+        </div>
+    </div>
+
+    <!-- ALERT MODE LOCAL -->
+    <div id="local-mode-alert" class="max-w-[21cm] mx-auto hidden bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 text-sm no-print mt-4">
+        <p class="font-bold"><i class="fas fa-wifi"></i> Mode Hors Ligne</p>
+        <p>Les données sont enregistrées uniquement sur cet appareil (navigateur).</p>
+    </div>
+
+    <div class="max-w-[21cm] mx-auto p-8 bg-white shadow-lg mb-8 min-h-screen relative hidden" id="report-container">
+
+        <!-- VUE 1 : FORMULAIRE -->
+        <div id="view-form">
+
+            <!-- EN-TÊTE EXACT SELON LE MODÈLE OFFICIEL -->
+            <div class="flex justify-between items-start mb-6 text-sm font-bold">
+                <div class="text-center leading-snug">
+                    <p>Année Scolaire : <input type="text" id="input-year" value="2025/2026" class="w-24 text-center border-b border-gray-400 focus:outline-none bg-transparent"></p>
+                    <p>Commissariat Régional de l'Enseignement</p>
+                    <p><input type="text" id="input-region" placeholder="Tunis 1" class="w-32 text-center border-b border-gray-400 focus:outline-none bg-transparent"></p>
+                </div>
+                <div class="text-center leading-snug">
+                    <p class="uppercase">RÉPUBLIQUE TUNISIENNE</p>
+                    <p>Ministère de l'Éducation</p>
+                    <p>Inspection Générale de la Pédagogie de l'Éducation</p>
+                </div>
+            </div>
+
+            <!-- TITRE ENCADRÉ -->
+            <div class="flex flex-col items-center mb-8">
+                <div class="text-center text-xl font-bold uppercase border-2 border-black p-2 w-3/4 md:w-1/2">
+                    Rapport d'évaluation<br><span class="text-base font-normal normal-case">du travail de l'enseignant</span>
+                </div>
+            </div>
+
+            <!-- INFOS INSPECTEUR ET VISITE -->
+            <div class="flex justify-between items-end text-sm mb-6">
+                <div>
+                    <p class="font-bold">L'inspecteur(trice) : <input type="text" id="input-inspector" class="w-56 border-b border-gray-400 focus:outline-none bg-transparent font-bold" placeholder="Nom Prénom"></p>
+                    <p class="font-bold mt-2">Discipline : Gestion</p>
+                </div>
+                <div>
+                    <p class="font-bold">Nature de la visite :
+                        <select id="input-nature" class="border-b border-gray-400 focus:outline-none bg-transparent">
+                            <option value="Inspection">Inspection</option>
+                            <option value="Assistance">Assistance</option>
+                            <option value="Accompagnement">Accompagnement</option>
+                        </select>
+                    </p>
+                </div>
+            </div>
+
+            <!-- IDENTIFICATION (TABLEAUX) -->
+            <table class="w-full text-sm border-collapse border border-black mb-4">
+                <tr>
+                    <td class="border border-black p-2 w-1/2 align-top">
+                        <span class="font-bold">Nom et prénom de l'enseignant(e) :</span><br>
+                        <select id="input-civility" class="focus:outline-none bg-transparent mt-1"><option value="M.">M.</option><option value="Mme">Mme</option><option value="Mlle">Mlle</option></select>
+                        <input type="text" id="input-teacher" class="border-b border-gray-400 focus:outline-none bg-transparent w-48 font-bold" placeholder="Nom Prénom">
+                    </td>
+                    <td class="border border-black p-2 w-1/2 align-top">
+                        <span class="font-bold">Grade actuel :</span><br>
+                        <input type="text" id="input-grade" class="w-full border-b border-gray-400 focus:outline-none bg-transparent mt-1">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="border border-black p-2 align-top">
+                        <span class="font-bold">Établissement :</span><br>
+                        <input type="text" id="input-establishment" class="w-full border-b border-gray-400 focus:outline-none bg-transparent mt-1">
+                    </td>
+                    <td class="border border-black p-2 align-top leading-relaxed">
+                        <span class="font-bold">Date de recrutement :</span> <input type="text" id="input-recrutement" placeholder="JJ/MM/AAAA" class="w-32 border-b border-gray-400 focus:outline-none bg-transparent"><br>
+                        <span class="font-bold">Date de la dernière visite :</span> <input type="text" id="input-last-visit" placeholder="JJ/MM/AAAA" class="w-32 border-b border-gray-400 focus:outline-none bg-transparent">
+                    </td>
+                </tr>
+            </table>
+
+            <table class="w-full text-sm border-collapse border border-black mb-6">
+                <tr>
+                    <td class="border border-black p-2 w-1/3 align-top">
+                        <span class="font-bold">Date de la visite :</span><br>
+                        <input type="text" id="input-date" placeholder="JJ/MM/AAAA" class="w-full border-b border-gray-400 focus:outline-none bg-transparent mt-1">
+                    </td>
+                    <td class="border border-black p-2 w-1/3 align-top">
+                        <span class="font-bold">Classe :</span><br>
+                        <input type="text" id="input-class" class="w-full border-b border-gray-400 focus:outline-none bg-transparent mt-1">
+                    </td>
+                    <td class="border border-black p-2 w-1/3 align-top">
+                        <span class="font-bold">Nombre d'élèves :</span><br>
+                        <div class="mt-1">
+                            <input type="text" id="input-students-present" class="w-8 border-b border-gray-400 focus:outline-none text-center bg-transparent"> / <input type="text" id="input-students-total" class="w-8 border-b border-gray-400 focus:outline-none text-center bg-transparent">
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="border border-black p-2 align-top">
+                        <span class="font-bold">Leçon :</span>
+                        <input type="text" id="input-subject" class="w-5/6 border-b border-gray-400 focus:outline-none bg-transparent ml-2">
+                    </td>
+                </tr>
+            </table>
+
+            <!-- DESCRIPTION -->
+            <div class="mb-4 border border-black p-2 relative group">
+                <h3 class="font-bold underline mb-2">Description du déroulement de la leçon</h3>
+                <textarea id="desc-lesson" class="w-full text-sm focus:outline-none overflow-hidden bg-transparent resize-none block" oninput="window.autoResize(this)" rows="3" placeholder="Saisir le déroulement brut de la leçon ici, puis cliquez sur la baguette magique pour le reformuler au style de l'inspection..."></textarea>
+                <button type="button" onclick="window.improveDescription()" class="magic-btn absolute top-2 right-2 text-purple-600 hover:text-purple-800 p-1 rounded-full bg-white shadow no-print" title="Reformuler avec l'IA (Gemini)"><i class="fas fa-magic"></i></button>
+            </div>
+
+            <!-- GRILLE -->
+            <form id="evalForm">
+                <table class="w-full text-sm text-left border-collapse border border-black">
+                    <thead class="bg-gray-100 text-black font-bold">
+                        <tr>
+                            <th class="border border-black p-2 w-1/5">Compétences</th>
+                            <th class="border border-black p-2 w-1/4">Composantes de la compétence</th>
+                            <th class="border border-black p-2 w-1/2">Observations (arguments, propositions…)</th>
+                            <th class="border border-black p-1 w-12 text-center no-print-scale">*Echelle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="grille-body"></tbody>
+                </table>
+                <div class="text-xs mt-1 no-print-scale">*échelle de notation : 0 : néant -1 : insuffisant -2 : passable -3 : bien -4 : très bien -5 : excellent</div>
+
+                <!-- SYNTHESE -->
+                <div class="mt-4 border border-black p-2 relative group">
+                    <div class="flex justify-between items-center mb-1 flex-wrap gap-2">
+                        <h3 class="font-bold underline">Synthèse des remarques et des recommandations</h3>
+                        <div class="flex gap-2 no-print">
+                            <button type="button" onclick="window.generateGeminiSynthesis()" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs font-bold shadow flex items-center gap-1" id="gemini-btn" title="Rédige une synthèse formelle avec l'IA Gemini"><i class="fas fa-magic"></i> IA (Gemini)</button>
+                            <button type="button" onclick="window.generateAutoSynthesis()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-bold shadow" title="Génère une synthèse basée sur des règles prédéfinies"><i class="fas fa-robot"></i> Auto</button>
+                        </div>
+                    </div>
+                    <textarea id="global-comment" class="w-full text-sm focus:outline-none resize-none overflow-hidden bg-transparent block" oninput="window.autoResize(this)" placeholder="Saisir ou générer la synthèse..." rows="6"></textarea>
+                </div>
+            </form>
+
+            <!-- PIED DE PAGE -->
+            <div class="mt-4 flex justify-between items-end">
+                <div class="w-1/3"><p class="font-bold text-lg border-2 border-black p-2 inline-block">Note : <input type="number" step="0.01" min="0" max="20" id="final-score-display" class="w-20 text-center font-bold focus:outline-none bg-transparent" placeholder="--" oninput="window.onScoreManualEdit()"> / 20</p>
+                    <div class="no-print text-xs mt-1 flex items-center gap-2 font-sans">
+                        <span id="score-mode" class="text-gray-400"><i class="fas fa-calculator"></i> Note calculée auto. — <span class="text-blue-600"><i class="fas fa-pen"></i> cliquez dans le champ pour la modifier</span></span>
+                        <button type="button" onclick="window.resetAutoScore()" id="score-auto-btn" class="hidden text-blue-600 underline"><i class="fas fa-rotate-left"></i> recalculer</button>
+                    </div>
+                </div>
+                <div class="w-1/3 text-center"><p>Fait à : <input type="text" id="footer-place-inspector" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"> le : <input type="text" id="footer-date-inspector" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"></p><p class="font-bold mt-4">Signature de l'inspecteur (trice)</p></div>
+                <div class="w-1/3 text-right"><p>Lu et reçu copie conforme</p><p>Fait à : <input type="text" id="footer-place-teacher" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"> le : <input type="text" id="footer-date-teacher" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"></p><p class="font-bold mt-4">Signature de l'enseignant(e)</p></div>
+            </div>
+
+            <!-- BOUTONS ACTION -->
+            <div class="fixed bottom-4 right-4 flex flex-wrap gap-2 no-print z-50 justify-end max-w-[95vw]">
+                <div class="bg-white px-2 py-1 rounded shadow text-xs font-bold text-gray-600 border border-gray-200 self-center">Indicateurs: <span id="count-filled">0</span>/20</div>
+                <button onclick="window.newReport()" id="btn-new" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Nouveau rapport (vider le formulaire)"><i class="fas fa-file"></i></button>
+                <button onclick="window.handleSave()" id="btn-save" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Enregistrer le rapport"><i class="fas fa-save"></i></button>
+                <button onclick="window.exportPDF()" id="btn-pdf" class="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Télécharger en PDF"><i class="fas fa-file-pdf"></i></button>
+                <button onclick="window.exportWord()" id="btn-word" class="bg-sky-700 hover:bg-sky-800 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Télécharger en Word (.docx)"><i class="fas fa-file-word"></i></button>
+                <button onclick="window.print()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Imprimer le rapport"><i class="fas fa-print"></i></button>
+            </div>
+        </div>
+
+        <!-- VUE 2 : STATISTIQUES -->
+        <div id="view-stats" class="hidden font-sans">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Historique des Inspections</h2>
+
+            <!-- Cartes statistiques -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div class="bg-blue-50 border border-blue-200 rounded p-3 text-center"><div class="text-2xl font-bold text-blue-700" id="stat-count">0</div><div class="text-xs text-gray-500 uppercase">Rapports</div></div>
+                <div class="bg-green-50 border border-green-200 rounded p-3 text-center"><div class="text-2xl font-bold text-green-700" id="stat-avg">-</div><div class="text-xs text-gray-500 uppercase">Note moyenne</div></div>
+                <div class="bg-emerald-50 border border-emerald-200 rounded p-3 text-center"><div class="text-2xl font-bold text-emerald-700" id="stat-max">-</div><div class="text-xs text-gray-500 uppercase">Note max</div></div>
+                <div class="bg-orange-50 border border-orange-200 rounded p-3 text-center"><div class="text-2xl font-bold text-orange-700" id="stat-min">-</div><div class="text-xs text-gray-500 uppercase">Note min</div></div>
+            </div>
+
+            <div class="bg-white rounded border border-gray-200 overflow-hidden">
+                <div class="bg-gray-100 px-4 py-2 border-b flex justify-between items-center flex-wrap gap-2">
+                    <span class="font-bold text-gray-700">Rapports Enregistrés</span>
+                    <div class="flex gap-2 items-center">
+                        <input type="text" id="history-search" oninput="window.renderHistory()" placeholder="Rechercher..." class="border rounded px-2 py-1 text-xs focus:outline-none focus:ring focus:ring-blue-200">
+                        <div id="admin-actions" class="hidden flex gap-2">
+                            <button onclick="window.changePassword()" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs shadow" title="Changer le mot de passe admin">MDP</button>
+                            <button onclick="window.deleteAll()" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs shadow" title="Supprimer tous les rapports">Vider</button>
+                        </div>
+                        <button onclick="window.exportToCSV()" title="Exporter en CSV (Excel)" class="text-green-600 hover:text-green-800"><i class="fas fa-file-excel fa-lg"></i></button>
+                        <button onclick="window.importReport()" title="Importer un rapport (.json)" class="text-purple-600 hover:text-purple-800"><i class="fas fa-file-import fa-lg"></i></button>
+                        <button onclick="window.refreshStats()" title="Rafraîchir" class="text-blue-600 hover:text-blue-800"><i class="fas fa-sync fa-lg"></i></button>
+                        <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="window.handleImportFile(event)">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                        <tr><th class="p-3 border-b">Enseignant</th><th class="p-3 border-b">Établissement</th><th class="p-3 border-b">Date</th><th class="p-3 border-b">Note</th><th class="p-3 border-b text-center" id="col-actions-header">Actions</th></tr>
+                    </thead>
+                    <tbody id="history-body"></tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, getDoc, setDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        /* NOTE SÉCURITÉ : la clé API Firebase d'une application web est PUBLIQUE par
+           conception (elle identifie le projet, ce n'est pas un secret). La protection
+           réelle des données passe par les RÈGLES DE SÉCURITÉ Firestore côté serveur.
+           Voir : https://firebase.google.com/docs/firestore/security/get-started */
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDtZj-4E9ViefJ2Ria8zMKIrhJW7V_Qcj8",
+            authDomain: "inspection-gestion.firebaseapp.com",
+            projectId: "inspection-gestion",
+            storageBucket: "inspection-gestion.firebasestorage.app",
+            messagingSenderId: "1010806976572",
+            appId: "1:1010806976572:web:c366f9cdafb3c2d3445339",
+            measurementId: "G-84M69DBM8S"
+        };
+
+        // Liste de modèles Gemini, du plus récent au plus stable (fallback automatique)
+        const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+
+        let db, auth, currentUser;
+        let currentEditingId = null;
+        let isLocalMode = false;
+        let isAdmin = false;
+        let currentReports = [];            // cache des rapports chargés (pour CSV / suppression / stats)
+        const DEFAULT_PASS = "admin2026", CONFIG_PATH = 'config_admin';
+        let currentAdminPassHash = null;    // hash SHA-256 du mot de passe admin courant
+        const DRAFT_KEY = 'inspection_draft_v2';
+
+        const gridData = [
+            { id: "org", cat: "Organisation du travail", rows: 4, items: [
+                {id:"org-1",label:"Préparation de la leçon"},
+                {id:"org-2",label:"Tenue du cahier de textes de la classe"},
+                {id:"org-3",label:"Gestion cahiers/outils élèves"},
+                {id:"org-4",label:"Réalisation du programme"}
+            ]},
+            { id: "mai", cat: "Maitrise des connaissances et de la didactique", rows: 3, items: [
+                {id:"mai-1",label:"Maitrise langue enseignement"},
+                {id:"mai-2",label:"Maitrise connaissances/compétences"},
+                {id:"mai-3",label:"Maitrise didactique discipline"}
+            ]},
+            { id: "ing", cat: "Ingénierie de l'apprentissage", rows: 4, items: [
+                {id:"ing-1",label:"Construction intégrative apprentissages"},
+                {id:"ing-2",label:"Mise en œuvre approches adéquates"},
+                {id:"ing-3",label:"Scénarisation pédagogique"},
+                {id:"ing-4",label:"Utilisation outils/supports"}
+            ]},
+            { id: "ges", cat: "Gestion de la classe", rows: 3, items: [
+                {id:"ges-1",label:"Aménagement espace apprentissage"},
+                {id:"ges-2",label:"Utilisation techniques animation"},
+                {id:"ges-3",label:"Communication"}
+            ]},
+            { id: "eva", cat: "Evaluation", rows: 3, items: [
+                {id:"eva-1",label:"Recours différents types évaluation"},
+                {id:"eva-2",label:"Mise en œuvre remédiation"},
+                {id:"eva-3",label:"Conformité épreuves contrôle"}
+            ]},
+            { id: "pro", cat: "Parcours professionnel", rows: 3, items: [
+                {id:"pro-1",label:"Adhésion formation/autoformation"},
+                {id:"pro-2",label:"Initiative et innovation"},
+                {id:"pro-3",label:"Analyse réflexive pratiques"}
+            ]}
+        ];
+
+        // Identifiants de tous les champs texte/select persistés
+        const TEXT_FIELDS = [
+            'input-year','input-region','input-inspector','input-nature','input-civility',
+            'input-teacher','input-grade','input-establishment','input-recrutement','input-last-visit',
+            'input-date','input-class','input-students-present','input-students-total','input-subject',
+            'desc-lesson','global-comment','final-score-display',
+            'footer-place-inspector','footer-date-inspector','footer-place-teacher','footer-date-teacher'
+        ];
+
+        // ---------- UTILITAIRES ----------
+        function notify(message, type = 'info', timeout = 3500) {
+            const c = document.getElementById('toast-container');
+            if (!c) return;
+            const icons = { success:'fa-check-circle', error:'fa-exclamation-circle', info:'fa-info-circle', warn:'fa-triangle-exclamation' };
+            const el = document.createElement('div');
+            el.className = `toast toast-${type}`;
+            el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${message}</span>`;
+            c.appendChild(el);
+            setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(()=>el.remove(), 300); }, timeout);
+        }
+
+        // Remplace window.prompt (non supporté par Electron). Retourne Promise<string|null>.
+        function uiPrompt(message, opts = {}) {
+            return new Promise(resolve => {
+                const ov = document.getElementById('ui-prompt-overlay');
+                const msg = document.getElementById('ui-prompt-msg');
+                const inp = document.getElementById('ui-prompt-input');
+                const ok = document.getElementById('ui-prompt-ok');
+                const cancel = document.getElementById('ui-prompt-cancel');
+                msg.textContent = message;
+                inp.type = opts.password ? 'password' : 'text';
+                inp.value = opts.default || '';
+                ov.style.display = 'flex'; ov.classList.remove('hidden');
+                setTimeout(() => inp.focus(), 50);
+                const close = (val) => {
+                    ov.style.display = 'none'; ov.classList.add('hidden');
+                    ok.onclick = cancel.onclick = inp.onkeydown = null;
+                    resolve(val);
+                };
+                ok.onclick = () => close(inp.value);
+                cancel.onclick = () => close(null);
+                inp.onkeydown = (e) => { if(e.key === 'Enter') close(inp.value); else if(e.key === 'Escape') close(null); };
+            });
+        }
+
+        async function hashText(str) {
+            const data = new TextEncoder().encode(str);
+            const buf = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Tokens d'accord en genre selon la civilité (M. / Mme / Mlle)
+        function genderTokens() {
+            const civ = document.getElementById('input-civility').value;
+            const f = (civ === 'Mme' || civ === 'Mlle');
+            return {
+                f,
+                pronoun: f ? 'elle' : 'il',
+                Pronoun: f ? 'Elle' : 'Il',
+                teacher: f ? 'enseignante' : 'enseignant',
+                article: f ? "l'enseignante" : "l'enseignant"
+            };
+        }
+
+        async function initApp() {
+            buildGrid();
+            window.generateRadios();
+            currentAdminPassHash = await hashText(DEFAULT_PASS);
+            attachAutoDraft();
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                     try { await signInWithCustomToken(auth, __initial_auth_token); }
+                     catch(e) { await signInAnonymously(auth); }
+                } else { await signInAnonymously(auth); }
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    if(user) {
+                        document.getElementById('status-indicator').innerHTML='<span class="text-green-600"><i class="fas fa-circle"></i> Connecté</span>';
+                        document.getElementById('app-nav').classList.remove('hidden');
+                        document.getElementById('report-container').classList.remove('hidden');
+                        loadFirebaseStats();
+                        maybeRestoreDraft();
+                    }
+                });
+            } catch(e) {
+                isLocalMode = true;
+                document.getElementById('status-indicator').innerHTML='<span class="text-orange-500"><i class="fas fa-circle"></i> Local</span>';
+                document.getElementById('local-mode-alert').classList.remove('hidden');
+                document.getElementById('app-nav').classList.remove('hidden');
+                document.getElementById('report-container').classList.remove('hidden');
+                maybeRestoreDraft();
+            }
+        }
+
+        function buildGrid() {
+            const tbody = document.getElementById('grille-body');
+            let html = '';
+            gridData.forEach((cat, catIndex) => {
+                cat.items.forEach((item, i) => {
+                    html += `<tr>`;
+                    if(i === 0) {
+                        html += `<td rowspan="${cat.rows}" class="border border-black p-2 font-bold align-top">${cat.cat}</td>`;
+                        html += `<td class="border border-black p-2">${item.label}</td>`;
+                        html += `<td rowspan="${cat.rows}" class="border border-black p-2 relative group align-top">
+                            <textarea id="obs-cat-${catIndex}" class="w-full bg-transparent resize-none overflow-hidden h-full min-h-[80px] text-justify" oninput="window.autoResize(this)"></textarea>
+                        </td>`;
+                    } else {
+                        html += `<td class="border border-black p-2">${item.label}</td>`;
+                    }
+                    html += `<td class="border border-black p-1 text-center no-print-scale" id="row-${item.id}"></td></tr>`;
+                });
+            });
+            tbody.innerHTML = html;
+        }
+
+        window.generateRadios = function() {
+             gridData.forEach((cat, catIndex) => {
+                 cat.items.forEach(item => {
+                     const c = document.getElementById(`row-${item.id}`);
+                     if(!c) return;
+                     let h = `<div class="flex justify-center gap-1 radio-group">`;
+                     for(let i=0;i<=5;i++) {
+                         let cl = "bg-gray-100 hover:bg-gray-200 text-gray-600";
+                         if(i <= 1) cl = "hover:bg-red-100";
+                         if(i >= 4) cl = "hover:bg-green-100";
+                         h += `<input type="radio" id="${item.id}-${i}" name="${item.id}" value="${i}" class="hidden scale-btn" onchange="window.updateCategoryObservation(${catIndex}); window.calculateScore(); window.saveDraft()"><label for="${item.id}-${i}" class="cursor-pointer w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded border border-gray-300 text-xs font-bold transition-all ${cl}">${i}</label>`;
+                     }
+                     h += `</div><span class="hidden print-score font-bold text-lg" id="print-val-${item.id}">-</span>`;
+                     c.innerHTML = h;
+                 });
+             });
+        };
+
+        window.autoResize = function(t) { if(t){ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; } };
+
+        // --- DICTIONNAIRE JARGON OFFICIEL ET ENRICHI ---
+        const commentsDB = {
+            'org-1': { 0:"l'absence totale de traces écrites de préparation", 1:"une préparation limitée à la simple résolution des exercices", 2:"des fiches pédagogiques manquant de précision", 3:"une préparation du cours acceptable et méthodique", 4:"une préparation soignée et des objectifs clairement définis", 5:"une planification pédagogique rigoureuse" },
+            'org-2': { 0:"un cahier de textes non présenté", 1:"un cahier de textes qui n'est pas à jour", 2:"un remplissage irrégulier du cahier nécessitant plus de rigueur", 3:"une tenue régulière du cahier de textes", 4:"un cahier de textes bien tenu", 5:"une tenue exemplaire du cahier" },
+            'org-3': { 0:"aucune trace de correction sur les cahiers des élèves", 1:"un contrôle très rare et superficiel des cahiers", 2:"un suivi irrégulier des cahiers", 3:"un suivi régulier des travaux des apprenants", 4:"un contrôle sérieux et attentif", 5:"un suivi rigoureux et systématique" },
+            'org-4': { 0:"un retard critique compromettant l'achèvement du programme", 1:"une progression très lente", 2:"un retard constaté nécessitant un réajustement", 3:"une progression normale", 4:"une bonne gestion du temps didactique", 5:"une réalisation optimale du programme" },
+            'mai-1': { 0:"une langue d'enseignement inadaptée", 1:"un débit d'expression très rapide et des erreurs linguistiques", 2:"des phrases parfois incorrectement construites", 3:"une maîtrise satisfaisante de la langue", 4:"une évolution en classe avec beaucoup d'aisance", 5:"une élocution impeccable" },
+            'mai-2': { 0:"des erreurs scientifiques lourdes", 1:"des erreurs scientifiques d'inattention", 2:"une exactitude scientifique qui nécessite plus de rigueur", 3:"une maîtrise acceptable des contenus", 4:"une maîtrise solide des concepts", 5:"une expertise scientifique indéniable" },
+            'mai-3': { 0:"une absence de transposition didactique", 1:"une approche didactique peu adaptée au niveau des élèves", 2:"un effort de didactisation qui reste perfectible", 3:"une démarche didactique adéquate", 4:"une illustration des concepts par des exemples pertinents", 5:"une excellente maîtrise didactique" },
+            'ing-1': { 0:"une démarche purement transmissive et une monopolisation de la parole", 1:"un manque d'implication des élèves", 2:"une démarche reposant en grande partie sur la transmission", 3:"une bonne volonté à développer les savoirs", 4:"un travail guidé réalisé avec le concours des élèves", 5:"une ingénierie remarquable centrant l'apprentissage sur l'élève" },
+            'ing-2': { 0:"des méthodes inadaptées aux objectifs", 1:"le recours fréquent à la dictée sans explications", 2:"un choix méthodologique manquant de variété", 3:"une utilisation correcte des méthodes actives", 4:"une diversification efficace des approches", 5:"l'application d'une démarche inductive" },
+            'ing-3': { 0:"une absence de fil conducteur logique", 1:"un rythme accéléré relevant de l'agitation", 2:"des explications longues et ennuyeuses", 3:"un scénario pédagogique cohérent", 4:"un travail bien articulé", 5:"une scénarisation captivante" },
+            'ing-4': { 0:"une absence d'utilisation de supports", 1:"un usage excessif des documents polycopiés", 2:"un tableau qui n'est pas exploité convenablement", 3:"des supports variés et pertinents", 4:"une bonne intégration didactique", 5:"une schématisation claire et expressive au tableau" },
+            'ges-1': { 0:"un espace classe désorganisé", 1:"une disposition peu propice aux échanges", 2:"une organisation spatiale classique", 3:"une gestion correcte de l'espace", 4:"un aménagement favorisant l'interaction", 5:"une optimisation de l'espace" },
+            'ges-2': { 0:"une classe complètement effacée", 1:"une participation très timide", 2:"des techniques d'animation à revoir", 3:"une classe vivante", 4:"des techniques d'animation remarquables", 5:"une dynamique de groupe excellente" },
+            'ges-3': { 0:"un climat tendu", 1:"une communication à sens unique", 2:"une relation correcte mais parfois distante", 3:"de bons rapports avec les élèves", 4:"une gestion bienveillante", 5:"une personnalité très influente positivement" },
+            'eva-1': { 0:"une absence totale d'évaluation", 1:"l'utilisation de questions fermées favorisant la mémorisation", 2:"une focalisation excessive sur l'aspect technique", 3:"un usage correct des évaluations", 4:"une conception satisfaisante des sujets", 5:"un dispositif complet d'évaluation" },
+            'eva-2': { 0:"aucune prise en compte des difficultés des élèves", 1:"l'absence d'un compte rendu détaillé", 2:"quelques tentatives de remédiation ponctuelles", 3:"des dispositifs de remédiation fonctionnels", 4:"une attention ciblée accordée aux élèves en difficulté", 5:"un traitement de l'erreur judicieusement exploité" },
+            'eva-3': { 0:"des épreuves non conformes", 1:"des irrégularités de forme et de fond", 2:"un respect partiel des normes", 3:"des épreuves conformes", 4:"des évaluations bien construites", 5:"une qualité docimologique irréprochable" },
+            'pro-1': { 0:"un refus manifeste de formation", 1:"un faible intérêt pour le développement professionnel", 2:"une participation passive aux journées de formation", 3:"une assiduité régulière aux sessions de formation", 4:"un investissement sérieux avec un impact positif", 5:"une démarche très active d'autoformation" },
+            'pro-2': { 0:"aucune initiative", 1:"une routine installée", 2:"quelques efforts timides d'innovation", 3:"une participation active à la vie de l'établissement", 4:"une force de proposition indéniable", 5:"un profil innovant" },
+            'pro-3': { 0:"une incapacité à remettre en question ses pratiques", 1:"des difficultés à analyser objectivement ses réussites ou échecs", 2:"un début d'analyse réflexive à approfondir", 3:"une capacité d'auto-évaluation correcte", 4:"une ouverture remarquable aux conseils", 5:"une posture de praticien réflexif" }
+        };
+
+        const recoDB = {
+            'org-1': "préparer rigoureusement les fiches pédagogiques",
+            'org-2': "formuler clairement les objectifs sur le cahier de textes",
+            'org-3': "contrôler davantage les cahiers des élèves",
+            'org-4': "veiller à l'exécution du programme sans retard",
+            'mai-1': "surveiller les expressions et éviter le métalangage",
+            'mai-2': "veiller à l'exactitude des connaissances dispensées",
+            'mai-3': "faire émerger les représentations des élèves sans se contenter de donner la bonne réponse",
+            'ing-1': "laisser l'initiative aux élèves et ne pas anticiper les réponses",
+            'ing-2': "appliquer une démarche inductive (partir des exemples pour généraliser)",
+            'ing-3': "élaborer au préalable un plan de discussion cohérent",
+            'ing-4': "recourir à la schématisation des notions pour éviter les développements longs",
+            'ges-1': "aménager l'espace classe pour favoriser les échanges",
+            'ges-2': "varier les techniques d'animation (jeu de rôles, etc.)",
+            'ges-3': "réduire la monopolisation de la parole",
+            'eva-1': "viser la consolidation à travers la correction des devoirs",
+            'eva-2': "prendre en considération l'hétérogénéité des élèves",
+            'eva-3': "se conformer aux recommandations officielles afférentes à la consistance des épreuves",
+            'pro-1': "tirer meilleur profit du contenu des séances de formation",
+            'pro-2': "faire preuve de plus d'initiative pédagogique",
+            'pro-3': "analyser d'une façon continue ses pratiques professionnelles"
+        };
+
+        window.updateCategoryObservation = function(catIndex) {
+            const cat = gridData[catIndex];
+            const txtArea = document.getElementById(`obs-cat-${catIndex}`);
+            if(!txtArea) return;
+
+            let itemsData = [];
+            let allRated = true;
+
+            cat.items.forEach(item => {
+                const radios = document.getElementsByName(item.id);
+                let score = -1;
+                let checked = false;
+                for(const r of radios) { if(r.checked) { score = parseInt(r.value); checked = true; } }
+
+                const p = document.getElementById(`print-val-${item.id}`);
+                if(p && checked) p.innerText = score;
+
+                if (!checked) allRated = false;
+                else {
+                    let text = "";
+                    if(commentsDB[item.id]) {
+                        if (commentsDB[item.id][score]) text = commentsDB[item.id][score];
+                        else if (score <= 2) text = commentsDB[item.id][0];
+                        else text = commentsDB[item.id][3] || commentsDB[item.id][5];
+                    }
+                    if(text) itemsData.push({ score: score, text: text });
+                }
+            });
+
+            if(allRated && itemsData.length > 0) {
+                let positives = itemsData.filter(i => i.score >= 3).map(i => i.text);
+                let negatives = itemsData.filter(i => i.score < 3).map(i => i.text);
+
+                let sentence = "";
+                let intro = "Concernant " + cat.cat.toLowerCase() + ", on relève ";
+                if (cat.id === "mai") intro = "Au niveau de la maîtrise disciplinaire, on note ";
+                if (cat.id === "ges") intro = "Pour la gestion de la classe, on observe ";
+                if (cat.id === "pro") intro = "Sur le plan professionnel, on souligne ";
+
+                if (negatives.length === 0) {
+                    sentence = intro + joinWithCommas(positives) + ".";
+                } else if (positives.length === 0) {
+                    sentence = intro + joinWithCommas(negatives) + ".";
+                } else {
+                    if (positives.length >= negatives.length) {
+                        sentence = `Bien que l'on observe ${joinWithCommas(positives)}, on relève cependant ${joinWithCommas(negatives)}.`;
+                    } else {
+                        sentence = `Malgré ${joinWithCommas(positives)}, la prestation souffre malheureusement de ${joinWithCommas(negatives)}.`;
+                    }
+                }
+
+                sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+                txtArea.value = sentence;
+                window.autoResize(txtArea);
+            }
+        }
+
+        function joinWithCommas(arr) {
+            if (arr.length === 0) return "";
+            if (arr.length === 1) return arr[0];
+            const copy = arr.slice();
+            const last = copy.pop();
+            return copy.join(", ") + " ainsi qu'" + last;
+        }
+
+        let manualScore = false;   // true => la note /20 est saisie à la main (non recalculée)
+
+        window.calculateScore = function() {
+            let total = 0, count = 0;
+            gridData.forEach(cat => {
+                cat.items.forEach(item => {
+                    const r = document.querySelector(`input[name="${item.id}"]:checked`);
+                    if(r) { total += parseInt(r.value); count++; }
+                });
+            });
+            const cEl = document.getElementById('count-filled');
+            if(cEl) cEl.innerText = count;
+            const sEl = document.getElementById('final-score-display');
+            if(sEl && !manualScore) {
+                const score = count > 0 ? (total / (count * 5)) * 20 : 0;
+                sEl.value = count > 0 ? score.toFixed(2) : '';
+            }
+        };
+
+        // L'utilisateur saisit/force la note finale à la main
+        window.onScoreManualEdit = function() {
+            manualScore = true;
+            const m = document.getElementById('score-mode');
+            const b = document.getElementById('score-auto-btn');
+            if(m) m.innerHTML = '<i class="fas fa-pen"></i> Note saisie manuellement';
+            if(m) m.classList.replace('text-gray-400', 'text-orange-600');
+            if(b) b.classList.remove('hidden');
+            window.saveDraft();
+        };
+
+        // Revenir à la note calculée automatiquement
+        window.resetAutoScore = function() {
+            manualScore = false;
+            const m = document.getElementById('score-mode');
+            const b = document.getElementById('score-auto-btn');
+            if(m) { m.innerHTML = '<i class="fas fa-calculator"></i> Note calculée auto. — <span class="text-blue-600"><i class="fas fa-pen"></i> cliquez dans le champ pour la modifier</span>'; m.classList.replace('text-orange-600', 'text-gray-400'); }
+            if(b) b.classList.add('hidden');
+            window.calculateScore();
+            window.saveDraft();
+        };
+
+        // ---------- BROUILLON AUTOMATIQUE (localStorage) ----------
+        function collectFormData() {
+            const fields = {};
+            TEXT_FIELDS.forEach(id => { const el = document.getElementById(id); if(el) fields[id] = el.value; });
+            const scores = {};
+            gridData.forEach(cat => cat.items.forEach(item => {
+                const r = document.querySelector(`input[name="${item.id}"]:checked`);
+                scores[item.id] = r ? parseInt(r.value) : null;
+            }));
+            const observations = {};
+            gridData.forEach((c, idx) => { const t = document.getElementById(`obs-cat-${idx}`); observations[`cat_${idx}`] = t ? t.value : ''; });
+            return { fields, scores, observations, manualScore };
+        }
+
+        function fillFormData(data) {
+            if(!data) return;
+            const fields = data.fields || {};
+            TEXT_FIELDS.forEach(id => { const el = document.getElementById(id); if(el && fields[id] !== undefined) el.value = fields[id]; });
+            const scores = data.scores || {};
+            gridData.forEach(cat => cat.items.forEach(item => {
+                const sc = scores[item.id];
+                if(sc !== null && sc !== undefined) {
+                    const r = document.getElementById(`${item.id}-${sc}`);
+                    if(r) r.checked = true;
+                    const p = document.getElementById(`print-val-${item.id}`);
+                    if(p) p.innerText = sc;
+                }
+            }));
+            const obs = data.observations || {};
+            gridData.forEach((c, idx) => {
+                const t = document.getElementById(`obs-cat-${idx}`);
+                if(t && obs[`cat_${idx}`] !== undefined) { t.value = obs[`cat_${idx}`]; window.autoResize(t); }
+            });
+            document.querySelectorAll('textarea').forEach(t => window.autoResize(t));
+            // Restaure l'état de la note (auto vs manuelle)
+            if(data.manualScore) { manualScore = false; window.onScoreManualEdit(); }
+            else { window.resetAutoScore(); }
+        }
+
+        let draftTimer = null;
+        window.saveDraft = function() {
+            clearTimeout(draftTimer);
+            draftTimer = setTimeout(() => {
+                try {
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...collectFormData(), editingId: currentEditingId, ts: Date.now() }));
+                    const di = document.getElementById('draft-indicator');
+                    if(di){ di.classList.remove('hidden'); }
+                } catch(e) {}
+            }, 600);
+        };
+
+        function attachAutoDraft() {
+            document.querySelectorAll('input, textarea, select').forEach(el => {
+                el.addEventListener('input', window.saveDraft);
+                el.addEventListener('change', window.saveDraft);
+            });
+        }
+
+        function maybeRestoreDraft() {
+            let raw;
+            try { raw = localStorage.getItem(DRAFT_KEY); } catch(e) { return; }
+            if(!raw) return;
+            let draft;
+            try { draft = JSON.parse(raw); } catch(e) { return; }
+            const hasContent = (draft.fields && (draft.fields['input-teacher'] || draft.fields['desc-lesson'])) ||
+                               (draft.scores && Object.values(draft.scores).some(v => v !== null));
+            if(!hasContent) return;
+            if(confirm("Un brouillon non enregistré a été trouvé. Voulez-vous le restaurer ?")) {
+                fillFormData(draft);
+                currentEditingId = draft.editingId || null;
+                notify("Brouillon restauré.", "info");
+            } else {
+                try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
+            }
+        }
+
+        function clearDraft() {
+            try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
+            const di = document.getElementById('draft-indicator');
+            if(di) di.classList.add('hidden');
+        }
+
+        // ---------- IA (GEMINI) ----------
+        async function getGeminiKey() {
+            const stored = localStorage.getItem('user_gemini_key');
+            if(stored) return stored;
+            const key = await uiPrompt("Veuillez entrer votre clé API Gemini (https://aistudio.google.com/apikey) :");
+            if(key && key.trim()) { localStorage.setItem('user_gemini_key', key.trim()); return key.trim(); }
+            throw new Error("Clé API manquante");
+        }
+
+        window.resetGeminiKey = function() {
+            localStorage.removeItem('user_gemini_key');
+            notify("Clé API Gemini effacée.", "info");
+        };
+
+        // Tente chaque modèle de la liste jusqu'à réussite
+        async function geminiGenerate(prompt) {
+            const key = await getGeminiKey();
+            const ai = new GoogleGenerativeAI(key);
+            let lastErr;
+            for(const modelName of GEMINI_MODELS) {
+                try {
+                    const m = ai.getGenerativeModel({ model: modelName });
+                    const res = await m.generateContent(prompt);
+                    return res.response.text().trim();
+                } catch(e) { lastErr = e; }
+            }
+            throw lastErr || new Error("Échec de génération");
+        }
+
+        window.improveDescription = async function() {
+            const t = document.getElementById('desc-lesson');
+            if(!t.value.trim()) { notify("La description est vide.", "warn"); return; }
+            const btn = event?.currentTarget;
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+            try {
+                const prompt = `Tu es inspecteur(trice) de l'enseignement. Reformule la description suivante du déroulement d'une séance pédagogique dans un style administratif d'inspection : factuel, neutre, à la 3e personne, au présent, sans jugement de valeur. Conserve la chronologie des phases (mise en situation, développement, synthèse, évaluation). Réponds uniquement par le texte reformulé, sans titre ni mise en forme Markdown.\n\nTexte brut : "${t.value}"`;
+                t.value = await geminiGenerate(prompt);
+                window.autoResize(t);
+                window.saveDraft();
+                notify("Description reformulée.", "success");
+            } catch(e) {
+                notify("Erreur IA : " + (e?.message || "vérifiez votre clé API"), "error", 5000);
+            } finally {
+                if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-magic"></i>'; }
+            }
+        };
+
+        window.generateGeminiSynthesis = async function() {
+            const btn = document.getElementById('gemini-btn');
+            const old = btn.innerHTML; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>'; btn.disabled=true;
+            try {
+                 const g = genderTokens();
+                 const civ = document.getElementById('input-civility').value;
+                 const nom = document.getElementById('input-teacher').value || "(non renseigné)";
+                 const score = document.getElementById('final-score-display').value || "(non calculée)";
+                 let ctx = `Enseignant(e) : ${civ} ${nom} (${g.f ? 'féminin' : 'masculin'}).\nNote globale : ${score}/20.\nObservations par compétence :\n`;
+                 gridData.forEach((c, idx) => {
+                     const v = document.getElementById(`obs-cat-${idx}`).value;
+                     if(v) ctx += `- ${c.cat} : ${v}\n`;
+                 });
+                 const prompt = `Tu es inspecteur(trice) pédagogique de la discipline « Gestion » (Ministère de l'Éducation tunisien). Rédige une synthèse d'inspection formelle et concise pour ${civ} ${nom}.
+Contraintes :
+- Accorde systématiquement le texte au genre indiqué (${g.f ? "féminin : enseignante, elle" : "masculin : enseignant, il"}).
+- Structure en 3 parties : 1) une introduction de 2 phrases mettant en avant les principaux atouts ; 2) une liste de recommandations à l'infinitif (puces avec « - ») ; 3) une courte conclusion d'encouragement adaptée au niveau de la note.
+- Style administratif, sobre, sans Markdown (pas de **gras**, pas de titres #).
+Données :\n${ctx}`;
+                 const txt = document.getElementById('global-comment');
+                 txt.value = await geminiGenerate(prompt);
+                 window.autoResize(txt);
+                 window.saveDraft();
+                 notify("Synthèse générée par l'IA.", "success");
+            } catch(e){
+                notify("Erreur IA : " + (e?.message || "vérifiez votre clé API"), "error", 5000);
+            } finally { btn.innerHTML=old; btn.disabled=false; }
+        };
+
+        // ---------- VALIDATION ----------
+        function validateForm() {
+            const required = [
+                { id: 'input-teacher', label: "Nom de l'enseignant" },
+                { id: 'input-date', label: "Date de la visite" }
+            ];
+            let firstError = null;
+            required.forEach(r => {
+                const el = document.getElementById(r.id);
+                el.classList.remove('field-error');
+                if(!el.value.trim()) { el.classList.add('field-error'); if(!firstError) firstError = r; }
+            });
+            if(firstError) {
+                notify(`Champ requis manquant : ${firstError.label}.`, "warn");
+                document.getElementById(firstError.id).focus();
+                return false;
+            }
+            return true;
+        }
+
+        // ---------- SAUVEGARDE ----------
+        window.handleSave = async function() {
+            if(!validateForm()) return;
+            if(!currentUser && !isLocalMode) { notify("Connexion requise.", "error"); return; }
+
+            const btn = document.getElementById('btn-save');
+            const old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true;
+
+            const form = collectFormData();
+            const d = {
+                teacher: document.getElementById('input-teacher').value,
+                establishment: document.getElementById('input-establishment').value,
+                date: document.getElementById('input-date').value,
+                score: document.getElementById('final-score-display').value,
+                discipline: "Gestion",
+                form: form,                  // sauvegarde complète de tous les champs
+                timestamp: Timestamp.now()
+            };
+
+            try {
+                if(isLocalMode) {
+                    const list = JSON.parse(localStorage.getItem('inspection_reports') || '[]');
+                    if(currentEditingId) {
+                        const i = list.findIndex(x => x.id === currentEditingId);
+                        if(i >= 0) list[i] = { ...list[i], ...d, timestamp: Date.now() };
+                    } else {
+                        list.push({ id: 'local_' + Date.now(), ...d, timestamp: Date.now() });
+                    }
+                    localStorage.setItem('inspection_reports', JSON.stringify(list));
+                    currentReports = list.slice().reverse();
+                    window.renderHistory(); window.renderStats();
+                    notify(currentEditingId ? "Rapport mis à jour (local)." : "Rapport enregistré (local).", "success");
+                    currentEditingId = null;
+                } else {
+                    const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections');
+                    if(currentEditingId) {
+                        await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections', currentEditingId), d);
+                        notify("Rapport mis à jour.", "success"); currentEditingId = null;
+                    } else {
+                        await addDoc(colRef, d);
+                        notify("Rapport enregistré.", "success");
+                    }
+                }
+                clearDraft();
+            } catch(e){
+                notify("Erreur d'enregistrement : " + e.message, "error", 5000);
+            } finally {
+                btn.innerHTML = old; btn.disabled = false;
+            }
+        };
+
+        window.newReport = function() {
+            if(!confirm("Vider le formulaire pour un nouveau rapport ? Les données non enregistrées seront perdues.")) return;
+            TEXT_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if(!el) return;
+                if(id === 'input-year') el.value = '2025/2026';
+                else if(id === 'input-civility' || id === 'input-nature') el.selectedIndex = 0;
+                else if(id.startsWith('footer-')) el.value = '................................';
+                else el.value = '';
+            });
+            document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+            document.querySelectorAll('[id^="print-val-"]').forEach(p => p.innerText = '-');
+            gridData.forEach((c, idx) => { const t = document.getElementById(`obs-cat-${idx}`); if(t) t.value=''; });
+            currentEditingId = null;
+            window.resetAutoScore();
+            clearDraft();
+            notify("Nouveau rapport.", "info");
+        };
+
+        // ---------- HISTORIQUE / STATS ----------
+        function loadFirebaseStats() {
+            if(!currentUser) return;
+            const q = query(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections'));
+            onSnapshot(q, (snap) => {
+                let reports = [];
+                snap.forEach(docSnap => reports.push({ id: docSnap.id, ...docSnap.data() }));
+                reports.sort((a, b) => {
+                    const tA = a.timestamp && a.timestamp.toDate ? a.timestamp.toDate().getTime() : (a.timestamp || 0);
+                    const tB = b.timestamp && b.timestamp.toDate ? b.timestamp.toDate().getTime() : (b.timestamp || 0);
+                    return tB - tA;
+                });
+                currentReports = reports;
+                window.renderHistory();
+                window.renderStats();
+            }, (e) => { console.error("Snapshot error:", e); notify("Erreur de synchronisation.", "error"); });
+        }
+
+        window.renderStats = function() {
+            const scores = currentReports.map(r => parseFloat(r.score)).filter(n => !isNaN(n));
+            const setT = (id, v) => { const e = document.getElementById(id); if(e) e.innerText = v; };
+            setT('stat-count', currentReports.length);
+            if(scores.length) {
+                setT('stat-avg', (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(2));
+                setT('stat-max', Math.max(...scores).toFixed(2));
+                setT('stat-min', Math.min(...scores).toFixed(2));
+            } else { setT('stat-avg','-'); setT('stat-max','-'); setT('stat-min','-'); }
+        };
+
+        window.renderHistory = function() {
+            const search = (document.getElementById('history-search')?.value || '').toLowerCase();
+            const list = currentReports.filter(d =>
+                !search ||
+                (d.teacher||'').toLowerCase().includes(search) ||
+                (d.establishment||'').toLowerCase().includes(search) ||
+                (d.date||'').toLowerCase().includes(search)
+            );
+            let h = '';
+            list.forEach(d => {
+                h += `<tr class="hover:bg-gray-50">
+                    <td class="p-2 border-b">${escapeHtml(d.teacher) || 'N/A'}</td>
+                    <td class="p-2 border-b">${escapeHtml(d.establishment) || '-'}</td>
+                    <td class="p-2 border-b">${escapeHtml(d.date) || 'N/A'}</td>
+                    <td class="p-2 border-b font-bold">${escapeHtml(d.score) || '-'}</td>
+                    <td class="p-2 border-b text-center" id="col-actions-${d.id}">
+                        <button class="text-sky-700 mr-2" onclick="window.exportWordFromHistory('${d.id}')" title="Exporter en Word (.docx)"><i class="fas fa-file-word"></i></button>
+                        ${isAdmin ? `<button class="text-blue-600 mr-2" onclick="window.editEntry('${d.id}')" title="Modifier"><i class="fas fa-edit"></i></button>
+                        <button class="text-red-600" onclick="window.deleteEntry('${d.id}')" title="Supprimer"><i class="fas fa-trash"></i></button>` : ''}
+                    </td>
+                </tr>`;
+            });
+            const el = document.getElementById('history-body');
+            if(el) el.innerHTML = h || '<tr><td colspan="5" class="p-4 text-center text-gray-500">Aucun rapport.</td></tr>';
+        };
+
+        function escapeHtml(s) {
+            if(s === null || s === undefined) return '';
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        window.editEntry = async function(id) {
+            try {
+                let d;
+                if(isLocalMode) {
+                    d = currentReports.find(x => x.id === id);
+                } else {
+                    if(!currentUser) return;
+                    const s = await getDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections', id));
+                    if(s.exists()) d = s.data();
+                }
+                if(!d) { notify("Rapport introuvable.", "error"); return; }
+                window.switchTab('form');
+
+                if(d.form) {
+                    fillFormData(d.form);
+                } else {
+                    // Rétrocompatibilité avec l'ancien format (champs au premier niveau + details)
+                    const legacy = { fields: {
+                        'input-teacher': d.teacher || '', 'input-establishment': d.establishment || '',
+                        'input-date': d.date || '', 'final-score-display': d.score || '',
+                        'global-comment': d.comment || '', 'desc-lesson': d.descLesson || ''
+                    }, scores: {}, observations: {} };
+                    if(d.details) {
+                        gridData.forEach((c, idx) => {
+                            if(d.details[`cat_${idx}`]?.observation) legacy.observations[`cat_${idx}`] = d.details[`cat_${idx}`].observation;
+                            c.items.forEach(item => { if(d.details[item.id]?.score != null) legacy.scores[item.id] = d.details[item.id].score; });
+                        });
+                    }
+                    fillFormData(legacy);
+                }
+                currentEditingId = id;
+                notify("Rapport chargé pour modification.", "info");
+            } catch(e) { console.error("Edit entry error", e); notify("Erreur de chargement.", "error"); }
+        };
+
+        window.deleteEntry = async function(id) {
+            if(!confirm("Supprimer ce rapport ?")) return;
+            try {
+                if(isLocalMode) {
+                    const list = JSON.parse(localStorage.getItem('inspection_reports') || '[]').filter(x => x.id !== id);
+                    localStorage.setItem('inspection_reports', JSON.stringify(list));
+                    currentReports = list.slice().reverse();
+                    window.renderHistory(); window.renderStats();
+                } else {
+                    if(!currentUser) return;
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections', id));
+                }
+                notify("Rapport supprimé.", "success");
+            } catch(e) { console.error("Delete error", e); notify("Erreur de suppression.", "error"); }
+        };
+
+        // ---------- ADMIN ----------
+        async function loadAdminSettings() {
+             try {
+                const d = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', CONFIG_PATH));
+                if(d.exists() && d.data().passwordHash) currentAdminPassHash = d.data().passwordHash;
+             } catch(e){}
+        }
+
+        window.toggleAdmin = async function() {
+             if(isAdmin) {
+                 isAdmin=false;
+                 document.getElementById('admin-actions').classList.add('hidden');
+                 document.getElementById('admin-login-btn').innerHTML = '<i class="fas fa-lock"></i> Admin';
+                 window.renderHistory();
+                 return;
+             }
+             if(!isLocalMode) await loadAdminSettings();
+             const p = await uiPrompt("Mot de passe administrateur :", {password:true});
+             if(p === null) return;
+             if(await hashText(p) === currentAdminPassHash) {
+                 isAdmin=true;
+                 document.getElementById('admin-actions').classList.remove('hidden');
+                 document.getElementById('admin-login-btn').innerHTML = '<i class="fas fa-unlock"></i> Sortir';
+                 window.renderHistory();
+                 notify("Mode administrateur activé.", "success");
+             } else notify("Mot de passe incorrect.", "error");
+        };
+
+        window.changePassword = async function() {
+             const n = await uiPrompt("Nouveau mot de passe administrateur :", {password:true});
+             if(!n || !n.trim()) return;
+             const hash = await hashText(n.trim());
+             try {
+                 if(!isLocalMode) {
+                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', CONFIG_PATH), { passwordHash: hash });
+                 }
+                 currentAdminPassHash = hash;
+                 notify("Mot de passe modifié.", "success");
+             } catch(e) { notify("Erreur : impossible de sauvegarder le mot de passe.", "error"); }
+        };
+
+        window.deleteAll = async function() {
+            if(!isAdmin) return;
+            if(!confirm("Supprimer DÉFINITIVEMENT tous les rapports ? Cette action est irréversible.")) return;
+            if(!confirm("Confirmation finale : tout effacer ?")) return;
+            try {
+                if(isLocalMode) {
+                    localStorage.removeItem('inspection_reports');
+                    currentReports = [];
+                } else {
+                    if(!currentUser) return;
+                    const ids = currentReports.map(r => r.id);
+                    for(const id of ids) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections', id));
+                    }
+                }
+                window.renderHistory(); window.renderStats();
+                notify("Tous les rapports ont été supprimés.", "success");
+            } catch(e) { notify("Erreur lors de la suppression : " + e.message, "error"); }
+        };
+
+        // ---------- NAVIGATION ----------
+        window.switchTab = function(t) {
+            const isForm = (t === 'form');
+            document.getElementById('view-form').classList.toggle('hidden', !isForm);
+            document.getElementById('view-stats').classList.toggle('hidden', isForm);
+            document.getElementById('tab-form').className = `px-6 py-2 rounded-t-lg font-bold shadow transition font-sans ${isForm?'bg-blue-800 text-white':'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
+            document.getElementById('tab-stats').className = `px-6 py-2 rounded-t-lg font-bold shadow transition font-sans ${!isForm?'bg-blue-800 text-white':'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
+            if(!isForm) { window.renderHistory(); window.renderStats(); }
+        };
+
+        window.refreshStats = function() {
+            if(isLocalMode) {
+                currentReports = JSON.parse(localStorage.getItem('inspection_reports') || '[]').slice().reverse();
+                window.renderHistory(); window.renderStats();
+            } else { loadFirebaseStats(); }
+            notify("Historique rafraîchi.", "info");
+        };
+
+        // ---------- IMPORT D'UN RAPPORT (.json) ----------
+        // Accepte soit { fields, scores, observations }, soit un document complet { form: {...} }.
+        window.importReport = function() {
+            document.getElementById('import-file').click();
+        };
+
+        window.handleImportFile = function(ev) {
+            const file = ev.target.files && ev.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                try {
+                    const parsed = JSON.parse(reader.result);
+                    const data = parsed.form || parsed;
+                    if(!data.fields && !data.scores && !data.observations) throw new Error("format non reconnu");
+                    window.switchTab('form');
+                    currentEditingId = null;       // import = nouveau rapport
+                    fillFormData(data);
+                    document.querySelectorAll('textarea').forEach(t => window.autoResize(t));
+                    notify("Rapport importé. Vérifiez les champs puis enregistrez-le pour l'ajouter à l'historique.", "info", 6000);
+                    if(confirm("Enregistrer immédiatement ce rapport dans l'historique ?")) {
+                        await window.handleSave();
+                    }
+                } catch(e) {
+                    notify("Fichier invalide : " + e.message, "error", 5000);
+                } finally {
+                    ev.target.value = '';        // permet de réimporter le même fichier
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        // ---------- EXPORT CSV ----------
+        window.exportToCSV = function() {
+            if(!currentReports.length) { notify("Aucun rapport à exporter.", "warn"); return; }
+            const headers = ['Enseignant','Établissement','Date visite','Note /20','Discipline'];
+            const sep = ';';
+            const esc = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+            let csv = headers.map(esc).join(sep) + '\r\n';
+            currentReports.forEach(d => {
+                csv += [d.teacher, d.establishment, d.date, d.score, d.discipline || 'Gestion'].map(esc).join(sep) + '\r\n';
+            });
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM pour Excel
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `inspections_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            notify("Export CSV téléchargé.", "success");
+        };
+
+        // ---------- EXPORT PDF ----------
+        window.exportPDF = function() {
+            if(!validateForm()) return;
+            const el = document.getElementById('view-form');
+            const teacher = (document.getElementById('input-teacher').value || 'rapport').replace(/[^\w\-]+/g, '_');
+            const date = (document.getElementById('input-date').value || '').replace(/[^\w\-]+/g, '_');
+            document.body.classList.add('render-print');
+            const opt = {
+                margin: [10, 10, 12, 10],
+                filename: `Rapport_${teacher}${date ? '_' + date : ''}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            };
+            notify("Génération du PDF en cours...", "info");
+            html2pdf().set(opt).from(el).save()
+                .then(() => notify("PDF généré.", "success"))
+                .catch(() => notify("Erreur lors de la génération du PDF.", "error"))
+                .finally(() => document.body.classList.remove('render-print'));
+        };
+
+        // ---------- EXPORT WORD (.docx natif via docx.js) ----------
+        // Depuis le formulaire courant
+        window.exportWord = function() {
+            if(!validateForm()) return;
+            if(typeof docx === 'undefined') { notify("Bibliothèque Word non chargée (connexion requise).", "error", 5000); return; }
+            _generateWord(collectFormData());
+        };
+
+        // Depuis un rapport de l'historique (sans le rouvrir)
+        window.exportWordFromHistory = function(id) {
+            if(typeof docx === 'undefined') { notify("Bibliothèque Word non chargée (connexion requise).", "error", 5000); return; }
+            const rep = currentReports.find(r => r.id === id);
+            const data = rep && rep.form;
+            if(!data) { notify("Ce rapport ne contient pas de données complètes (ancien format) : ouvrez-le puis ré-enregistrez-le.", "warn", 6000); return; }
+            _generateWord(data);
+        };
+
+        function _generateWord(data) {
+            const D = docx;
+            const val = id => (data.fields?.[id] || '');
+
+            // Labels lisibles pour la grille Word
+            const labels = {
+                'org-1':"Préparation de la leçon",'org-2':"Tenue du cahier de textes de la classe",'org-3':"Gestion cahiers / outils élèves",'org-4':"Réalisation du programme",
+                'mai-1':"Maîtrise langue d'enseignement",'mai-2':"Maîtrise connaissances / compétences",'mai-3':"Maîtrise didactique de la discipline",
+                'ing-1':"Construction intégrative des apprentissages",'ing-2':"Mise en œuvre d'approches adéquates",'ing-3':"Scénarisation pédagogique",'ing-4':"Utilisation outils / supports",
+                'ges-1':"Aménagement espace d'apprentissage",'ges-2':"Utilisation techniques d'animation",'ges-3':"Communication",
+                'eva-1':"Recours à différents types d'évaluation",'eva-2':"Mise en œuvre de la remédiation",'eva-3':"Conformité des épreuves de contrôle",
+                'pro-1':"Adhésion formation / autoformation",'pro-2':"Initiative et innovation",'pro-3':"Analyse réflexive des pratiques"
+            };
+
+            const FONT = "Times New Roman", SZ = 20; // demi-points => 10pt
+            const BLACK = { style: D.BorderStyle.SINGLE, size: 6, color: "000000" };
+            const noBorder = { top:{style:D.BorderStyle.NONE}, bottom:{style:D.BorderStyle.NONE}, left:{style:D.BorderStyle.NONE}, right:{style:D.BorderStyle.NONE} };
+
+            const run = (text, bold=false) => new D.TextRun({ text, bold, font: FONT, size: SZ });
+            const p = (children, align) => new D.Paragraph({ children: Array.isArray(children)?children:[children], alignment: align, spacing:{ after: 20, before: 20 } });
+            const pt = (text, bold=false, align) => p([run(text, bold)], align);
+            const cell = (children, opts={}) => new D.TableCell({ children: Array.isArray(children)?children:[children],
+                columnSpan: opts.colSpan, verticalMerge: opts.vMerge, width: opts.width, shading: opts.shade ? { fill: opts.shade } : undefined,
+                verticalAlign: D.VerticalAlign.CENTER });
+            const fullW = { size: 100, type: D.WidthType.PERCENTAGE };
+            const table = (rows, opts={}) => new D.Table({ rows, width: fullW, alignment: D.AlignmentType.CENTER,
+                borders: opts.noBorder ? noBorder : undefined, columnWidths: opts.columnWidths });
+
+            // En-tête
+            const header = table([ new D.TableRow({ children: [
+                cell([ pt("Année scolaire : "+val('input-year'), true, D.AlignmentType.CENTER),
+                       pt("Commissariat Régional de l'Enseignement", true, D.AlignmentType.CENTER),
+                       pt(val('input-region'), true, D.AlignmentType.CENTER) ]),
+                cell([ pt("RÉPUBLIQUE TUNISIENNE", true, D.AlignmentType.CENTER),
+                       pt("Ministère de l'Éducation", true, D.AlignmentType.CENTER),
+                       pt("Inspection Générale de la Pédagogie de l'Éducation", true, D.AlignmentType.CENTER) ])
+            ]})], { noBorder:true });
+
+            const title = table([ new D.TableRow({ children: [
+                cell([ pt("RAPPORT D'ÉVALUATION", true, D.AlignmentType.CENTER), pt("du travail de l'enseignant", false, D.AlignmentType.CENTER) ]) ]})]);
+
+            const civ = val('input-civility');
+            // Identification
+            const idt = table([
+                new D.TableRow({ children: [
+                    cell([ p([run("Nom et prénom de l'enseignant(e) : ", true), run(civ+" "+val('input-teacher'), true)]) ], {width:{size:50,type:D.WidthType.PERCENTAGE}}),
+                    cell([ p([run("Grade actuel : ", true), run(val('input-grade'))]) ], {width:{size:50,type:D.WidthType.PERCENTAGE}})
+                ]}),
+                new D.TableRow({ children: [
+                    cell([ p([run("Établissement : ", true), run(val('input-establishment'))]) ]),
+                    cell([ p([run("Date de recrutement : ", true), run(val('input-recrutement')||"—")]),
+                           p([run("Date de la dernière visite : ", true), run(val('input-last-visit')||"—")]) ])
+                ]})
+            ]);
+
+            const eff = (val('input-students-present')||'—')+" / "+(val('input-students-total')||'—');
+            const visite = table([
+                new D.TableRow({ children: [
+                    cell([ p([run("Date de la visite : ", true), run(val('input-date'))]) ]),
+                    cell([ p([run("Classe : ", true), run(val('input-class'))]) ]),
+                    cell([ p([run("Nombre d'élèves : ", true), run(eff)]) ])
+                ]}),
+                new D.TableRow({ children: [ cell([ p([run("Leçon : ", true), run(val('input-subject'))]) ], {colSpan:3}) ]})
+            ]);
+
+            const descr = table([ new D.TableRow({ children: [
+                cell([ pt("Description du déroulement de la leçon", true), pt(val('desc-lesson')) ]) ]})]);
+
+            // Grille
+            const gridRows = [ new D.TableRow({ tableHeader:true, children: [
+                cell([ pt("Compétences", true) ], {shade:"D9D9D9"}),
+                cell([ pt("Composantes de la compétence", true) ], {shade:"D9D9D9"}),
+                cell([ pt("Observations (arguments, propositions…)", true) ], {shade:"D9D9D9"})
+            ]})];
+            gridData.forEach((catObj, idx) => {
+                catObj.items.forEach((item, i) => {
+                    const children = [];
+                    if(i === 0) children.push(cell([ pt(catObj.cat, true) ], { vMerge: D.VerticalMergeType.RESTART }));
+                    else children.push(cell([ p([]) ], { vMerge: D.VerticalMergeType.CONTINUE }));
+                    children.push(cell([ pt(labels[item.id] || item.label) ]));
+                    if(i === 0) children.push(cell([ pt(data.observations['cat_'+idx] || '') ], { vMerge: D.VerticalMergeType.RESTART }));
+                    else children.push(cell([ p([]) ], { vMerge: D.VerticalMergeType.CONTINUE }));
+                    gridRows.push(new D.TableRow({ children }));
+                });
+            });
+            const grid = table(gridRows, { columnWidths: [2400, 3000, 5400] });
+
+            // Synthèse
+            const synthChildren = [ pt("Synthèse des remarques et des recommandations", true) ];
+            val('global-comment').split('\n').forEach(line => synthChildren.push(pt(line)));
+            const synth = table([ new D.TableRow({ children: [ cell(synthChildren) ] })]);
+
+            // Note + signatures
+            const sig = table([ new D.TableRow({ children: [
+                cell([ p([run("Note : ", true), run(val('final-score-display')+" / 20", true)]) ]),
+                cell([ pt("Fait à : "+val('footer-place-inspector')+"   le : "+val('footer-date-inspector'), false, D.AlignmentType.CENTER),
+                       pt("Signature de l'inspecteur (trice)", true, D.AlignmentType.CENTER) ]),
+                cell([ pt("Lu et reçu copie conforme", false, D.AlignmentType.RIGHT),
+                       pt("Fait à : "+val('footer-place-teacher')+"   le : "+val('footer-date-teacher'), false, D.AlignmentType.RIGHT),
+                       pt("Signature de l'enseignant(e)", true, D.AlignmentType.RIGHT) ])
+            ]})], { noBorder:true });
+
+            const spacer = () => new D.Paragraph({ children:[], spacing:{ after: 80 } });
+            const doc = new D.Document({
+                styles: { default: { document: { run: { font: FONT, size: SZ } } } },
+                sections: [{
+                    properties: { page: { margin: { top: 720, bottom: 720, left: 850, right: 850 } } },
+                    children: [ header, spacer(), title, spacer(),
+                        p([run("L'inspecteur(trice) : ", true), run(val('input-inspector')||"................................")]),
+                        p([run("Discipline : ", true), run("Gestion"), run("          Nature de la visite : ", true), run(val('input-nature'))]),
+                        spacer(), idt, spacer(), visite, spacer(), descr, spacer(), grid, spacer(), synth, spacer(), sig ]
+                }]
+            });
+
+            notify("Génération du Word en cours...", "info");
+            D.Packer.toBlob(doc).then(blob => {
+                const teacher = (val('input-teacher')||'rapport').replace(/[^\w\-]+/g,'_');
+                const date = val('input-date').replace(/[^\w\-]+/g,'_');
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `Rapport_${teacher}${date?'_'+date:''}.docx`;
+                a.click(); URL.revokeObjectURL(a.href);
+                notify("Document Word généré.", "success");
+            }).catch(e => notify("Erreur Word : "+e.message, "error", 5000));
+        };
+
+        // ---------- SYNTHESE AUTO (accordée au genre) ----------
+        window.generateAutoSynthesis = function() {
+             const g = genderTokens();
+             const civility = document.getElementById('input-civility').value;
+             const rawName = document.getElementById('input-teacher').value.trim() || g.article;
+
+             let displayName = rawName;
+             const nameParts = rawName.split(/\s+/);
+             if (nameParts.length > 1) { nameParts.pop(); displayName = nameParts.join(' '); }
+             const fullName = document.getElementById('input-teacher').value.trim() ? `${civility} ${displayName}` : g.article;
+             const score = parseFloat(document.getElementById('final-score-display').value) || 0;
+
+             let pointsForts = [];
+             let recommandations = [];
+
+             gridData.forEach((cat) => {
+                 cat.items.forEach(item => {
+                    const r = document.querySelector(`input[name="${item.id}"]:checked`);
+                    const val = r ? parseInt(r.value) : -1;
+                    if(val !== -1) {
+                         if(val >= 4 && commentsDB[item.id]?.[val]) {
+                             let t = commentsDB[item.id][val];
+                             if(t.endsWith('.')) t = t.slice(0, -1);
+                             pointsForts.push(t);
+                         } else if(val <= 3 && recoDB[item.id]) {
+                             recommandations.push(recoDB[item.id]);
+                         }
+                    }
+                 });
+             });
+
+             let text = "";
+
+             // 1. INTRODUCTION
+             if (score >= 16) {
+                 text += `La prestation de ${fullName} a confirmé les qualités professionnelles et humaines que nous lui connaissons. En effet, on relève particulièrement `;
+             } else if (score >= 13) {
+                 text += `En définitive, et après discussion, il s'avère que ${fullName} se distingue par sa bonne volonté et assume avec sérieux ses responsabilités. L'évaluation met en évidence `;
+             } else if (score >= 10) {
+                 text += `${fullName} évolue de façon positive dans l'accomplissement de son travail. On note notamment `;
+             } else {
+                 text += `L'évaluation de ${fullName} montre un travail qui nécessite des réajustements, malgré `;
+             }
+
+             if(pointsForts.length > 0) {
+                 let firstPoint = pointsForts[0];
+                 text += firstPoint.charAt(0).toLowerCase() + firstPoint.slice(1);
+                 if (pointsForts.length > 1) {
+                     let secondPoint = pointsForts[1];
+                     text += " ainsi qu'" + secondPoint.charAt(0).toLowerCase() + secondPoint.slice(1) + ".\n\n";
+                 } else { text += ".\n\n"; }
+             } else {
+                 text = `L'évaluation de ${fullName} montre un travail qui nécessite des réajustements pédagogiques et didactiques majeurs.\n\n`;
+             }
+
+             // 2. RECOMMANDATIONS
+             if(recommandations.length > 0) {
+                 if (score >= 14) {
+                     text += `Toutefois, pour parfaire l'enseignement-apprentissage, ${g.pronoun} doit :\n`;
+                 } else {
+                     text += `Cependant, pour optimiser la qualité de l'enseignement, il lui a été recommandé de :\n`;
+                 }
+                 recommandations.slice(0, 5).forEach(r => {
+                     let clean = r.trim();
+                     text += `- ${clean.charAt(0).toLowerCase() + clean.slice(1)} ;\n`;
+                 });
+             }
+
+             // 3. CONCLUSION
+             let conclusion = "";
+             if(score >= 16) conclusion = `Je lui exprime mes vifs encouragements pour la poursuite de cet excellent travail.`;
+             else if(score >= 13) conclusion = `${g.Pronoun} aime son métier et manifeste un intérêt pour ses élèves. Je l'encourage à persévérer.`;
+             else if(score >= 10) conclusion = `Certes, il lui reste des progrès à accomplir. Sa bonne volonté donnera d'ores et déjà à son enseignement une efficacité certaine.`;
+             else conclusion = `Des efforts considérables et une remise en question de sa pratique sont exigés pour pallier les dysfonctionnements relevés.`;
+
+             text += `\n${conclusion}`;
+
+             const box = document.getElementById('global-comment');
+             box.value = text;
+             window.autoResize(box);
+             window.saveDraft();
+             notify("Synthèse automatique générée.", "success");
+        };
+
+        // Avant impression, recalcule la hauteur des zones de texte sous le style
+        // d'impression (police 10pt en gras) afin d'éviter que la dernière ligne
+        // soit tronquée au saut de page.
+        window.addEventListener('beforeprint', () => {
+            document.querySelectorAll('textarea').forEach(t => { t.style.height = 'auto'; t.style.height = (t.scrollHeight + 4) + 'px'; });
+        });
+
+        initApp();
+    </script>
+</body>
+</html>

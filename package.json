@@ -1,0 +1,42 @@
+{
+  "name": "rapport-inspection",
+  "productName": "Rapport Inspection",
+  "version": "1.0.0",
+  "description": "Application de rédaction des rapports d'évaluation d'inspection pédagogique (discipline Gestion).",
+  "author": "haythembenjima",
+  "license": "MIT",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.inspection.rapports",
+    "productName": "Rapport Inspection",
+    "files": [
+      "index.html",
+      "electron/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Rapport Inspection"
+    }
+  }
+}
