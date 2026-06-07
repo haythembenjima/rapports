@@ -81,6 +81,18 @@
     <!-- TOASTS -->
     <div id="toast-container" class="no-print"></div>
 
+    <!-- MODALE DE SAISIE (remplace window.prompt, compatible Electron) -->
+    <div id="ui-prompt-overlay" class="no-print hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:none;align-items:center;justify-content:center;font-family:ui-sans-serif,system-ui,sans-serif;">
+        <div style="background:#fff;border-radius:.5rem;box-shadow:0 20px 50px rgba(0,0,0,.3);width:90%;max-width:380px;padding:1.25rem;">
+            <p id="ui-prompt-msg" style="font-weight:600;margin-bottom:.75rem;color:#1f2937;font-size:.9rem;"></p>
+            <input id="ui-prompt-input" type="text" style="width:100%;border:1px solid #d1d5db;border-radius:.375rem;padding:.5rem .6rem;font-size:.9rem;outline:none;" autocomplete="off">
+            <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem;">
+                <button id="ui-prompt-cancel" style="padding:.4rem .9rem;border-radius:.375rem;background:#e5e7eb;color:#374151;font-size:.85rem;font-weight:600;">Annuler</button>
+                <button id="ui-prompt-ok" style="padding:.4rem .9rem;border-radius:.375rem;background:#2563eb;color:#fff;font-size:.85rem;font-weight:600;">Valider</button>
+            </div>
+        </div>
+    </div>
+
     <!-- NAVIGATION TABS -->
     <div id="app-nav" class="max-w-[21cm] mx-auto mt-4 px-4 no-print flex flex-wrap gap-2 justify-between items-center hidden">
         <div class="flex gap-2">
@@ -389,6 +401,30 @@
             el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${message}</span>`;
             c.appendChild(el);
             setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(()=>el.remove(), 300); }, timeout);
+        }
+
+        // Remplace window.prompt (non supporté par Electron). Retourne Promise<string|null>.
+        function uiPrompt(message, opts = {}) {
+            return new Promise(resolve => {
+                const ov = document.getElementById('ui-prompt-overlay');
+                const msg = document.getElementById('ui-prompt-msg');
+                const inp = document.getElementById('ui-prompt-input');
+                const ok = document.getElementById('ui-prompt-ok');
+                const cancel = document.getElementById('ui-prompt-cancel');
+                msg.textContent = message;
+                inp.type = opts.password ? 'password' : 'text';
+                inp.value = opts.default || '';
+                ov.style.display = 'flex'; ov.classList.remove('hidden');
+                setTimeout(() => inp.focus(), 50);
+                const close = (val) => {
+                    ov.style.display = 'none'; ov.classList.add('hidden');
+                    ok.onclick = cancel.onclick = inp.onkeydown = null;
+                    resolve(val);
+                };
+                ok.onclick = () => close(inp.value);
+                cancel.onclick = () => close(null);
+                inp.onkeydown = (e) => { if(e.key === 'Enter') close(inp.value); else if(e.key === 'Escape') close(null); };
+            });
         }
 
         async function hashText(str) {
@@ -726,7 +762,7 @@
         async function getGeminiKey() {
             const stored = localStorage.getItem('user_gemini_key');
             if(stored) return stored;
-            const key = prompt("Veuillez entrer votre clé API Gemini (https://aistudio.google.com/apikey) :");
+            const key = await uiPrompt("Veuillez entrer votre clé API Gemini (https://aistudio.google.com/apikey) :");
             if(key && key.trim()) { localStorage.setItem('user_gemini_key', key.trim()); return key.trim(); }
             throw new Error("Clé API manquante");
         }
@@ -1016,7 +1052,7 @@ Données :\n${ctx}`;
                  return;
              }
              if(!isLocalMode) await loadAdminSettings();
-             const p = prompt("Mot de passe administrateur :");
+             const p = await uiPrompt("Mot de passe administrateur :", {password:true});
              if(p === null) return;
              if(await hashText(p) === currentAdminPassHash) {
                  isAdmin=true;
@@ -1028,7 +1064,7 @@ Données :\n${ctx}`;
         };
 
         window.changePassword = async function() {
-             const n = prompt("Nouveau mot de passe administrateur :");
+             const n = await uiPrompt("Nouveau mot de passe administrateur :", {password:true});
              if(!n || !n.trim()) return;
              const hash = await hashText(n.trim());
              try {

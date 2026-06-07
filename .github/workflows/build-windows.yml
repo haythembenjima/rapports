@@ -1,0 +1,41 @@
+name: Build Windows Installer
+
+# Génère l'installateur Windows (.exe) de l'application.
+# Se déclenche à chaque push sur main touchant l'app, ou manuellement (Run workflow).
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - 'electron/**'
+      - 'package.json'
+      - '.github/workflows/build-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows installer (NSIS)
+        run: npm run dist
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-inspection-windows-installer
+          path: dist/*.exe
+          if-no-files-found: error
