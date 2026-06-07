@@ -8,6 +8,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <!-- Export PDF dédié -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Export Word (.docx natif) -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@9.0.2/build/index.umd.js"></script>
 
     <script type="importmap">
       {
@@ -238,7 +240,12 @@
 
             <!-- PIED DE PAGE -->
             <div class="mt-4 flex justify-between items-end">
-                <div class="w-1/3"><p class="font-bold text-lg border-2 border-black p-2 inline-block">Note : <input type="number" step="0.01" id="final-score-display" class="w-20 text-center font-bold focus:outline-none bg-transparent" placeholder="--"> / 20</p></div>
+                <div class="w-1/3"><p class="font-bold text-lg border-2 border-black p-2 inline-block">Note : <input type="number" step="0.01" min="0" max="20" id="final-score-display" class="w-20 text-center font-bold focus:outline-none bg-transparent" placeholder="--" oninput="window.onScoreManualEdit()"> / 20</p>
+                    <div class="no-print text-xs mt-1 flex items-center gap-2">
+                        <span id="score-mode" class="text-gray-400"><i class="fas fa-calculator"></i> Note calculée automatiquement</span>
+                        <button type="button" onclick="window.resetAutoScore()" id="score-auto-btn" class="hidden text-blue-600 underline font-sans"><i class="fas fa-rotate-left"></i> recalculer</button>
+                    </div>
+                </div>
                 <div class="w-1/3 text-center"><p>Fait à : <input type="text" id="footer-place-inspector" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"> le : <input type="text" id="footer-date-inspector" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"></p><p class="font-bold mt-4">Signature de l'inspecteur (trice)</p></div>
                 <div class="w-1/3 text-right"><p>Lu et reçu copie conforme</p><p>Fait à : <input type="text" id="footer-place-teacher" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"> le : <input type="text" id="footer-date-teacher" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"></p><p class="font-bold mt-4">Signature de l'enseignant(e)</p></div>
             </div>
@@ -249,6 +256,7 @@
                 <button onclick="window.newReport()" id="btn-new" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Nouveau rapport (vider le formulaire)"><i class="fas fa-file"></i></button>
                 <button onclick="window.handleSave()" id="btn-save" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Enregistrer le rapport"><i class="fas fa-save"></i></button>
                 <button onclick="window.exportPDF()" id="btn-pdf" class="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Télécharger en PDF"><i class="fas fa-file-pdf"></i></button>
+                <button onclick="window.exportWord()" id="btn-word" class="bg-sky-700 hover:bg-sky-800 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Télécharger en Word (.docx)"><i class="fas fa-file-word"></i></button>
                 <button onclick="window.print()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Imprimer le rapport"><i class="fas fa-print"></i></button>
             </div>
         </div>
@@ -591,6 +599,8 @@
             return copy.join(", ") + " ainsi qu'" + last;
         }
 
+        let manualScore = false;   // true => la note /20 est saisie à la main (non recalculée)
+
         window.calculateScore = function() {
             let total = 0, count = 0;
             gridData.forEach(cat => {
@@ -601,9 +611,33 @@
             });
             const cEl = document.getElementById('count-filled');
             if(cEl) cEl.innerText = count;
-            const score = count > 0 ? (total / (count * 5)) * 20 : 0;
             const sEl = document.getElementById('final-score-display');
-            if(sEl) sEl.value = count > 0 ? score.toFixed(2) : '';
+            if(sEl && !manualScore) {
+                const score = count > 0 ? (total / (count * 5)) * 20 : 0;
+                sEl.value = count > 0 ? score.toFixed(2) : '';
+            }
+        };
+
+        // L'utilisateur saisit/force la note finale à la main
+        window.onScoreManualEdit = function() {
+            manualScore = true;
+            const m = document.getElementById('score-mode');
+            const b = document.getElementById('score-auto-btn');
+            if(m) m.innerHTML = '<i class="fas fa-pen"></i> Note saisie manuellement';
+            if(m) m.classList.replace('text-gray-400', 'text-orange-600');
+            if(b) b.classList.remove('hidden');
+            window.saveDraft();
+        };
+
+        // Revenir à la note calculée automatiquement
+        window.resetAutoScore = function() {
+            manualScore = false;
+            const m = document.getElementById('score-mode');
+            const b = document.getElementById('score-auto-btn');
+            if(m) { m.innerHTML = '<i class="fas fa-calculator"></i> Note calculée automatiquement'; m.classList.replace('text-orange-600', 'text-gray-400'); }
+            if(b) b.classList.add('hidden');
+            window.calculateScore();
+            window.saveDraft();
         };
 
         // ---------- BROUILLON AUTOMATIQUE (localStorage) ----------
@@ -617,7 +651,7 @@
             }));
             const observations = {};
             gridData.forEach((c, idx) => { const t = document.getElementById(`obs-cat-${idx}`); observations[`cat_${idx}`] = t ? t.value : ''; });
-            return { fields, scores, observations };
+            return { fields, scores, observations, manualScore };
         }
 
         function fillFormData(data) {
@@ -640,7 +674,9 @@
                 if(t && obs[`cat_${idx}`] !== undefined) { t.value = obs[`cat_${idx}`]; window.autoResize(t); }
             });
             document.querySelectorAll('textarea').forEach(t => window.autoResize(t));
-            window.calculateScore();
+            // Restaure l'état de la note (auto vs manuelle)
+            if(data.manualScore) { manualScore = false; window.onScoreManualEdit(); }
+            else { window.resetAutoScore(); }
         }
 
         let draftTimer = null;
@@ -847,7 +883,7 @@ Données :\n${ctx}`;
             document.querySelectorAll('[id^="print-val-"]').forEach(p => p.innerText = '-');
             gridData.forEach((c, idx) => { const t = document.getElementById(`obs-cat-${idx}`); if(t) t.value=''; });
             currentEditingId = null;
-            window.calculateScore();
+            window.resetAutoScore();
             clearDraft();
             notify("Nouveau rapport.", "info");
         };
@@ -1115,6 +1151,136 @@ Données :\n${ctx}`;
                 .then(() => notify("PDF généré.", "success"))
                 .catch(() => notify("Erreur lors de la génération du PDF.", "error"))
                 .finally(() => document.body.classList.remove('render-print'));
+        };
+
+        // ---------- EXPORT WORD (.docx natif via docx.js) ----------
+        window.exportWord = function() {
+            if(!validateForm()) return;
+            if(typeof docx === 'undefined') { notify("Bibliothèque Word non chargée (connexion requise).", "error", 5000); return; }
+            const D = docx;
+            const val = id => (document.getElementById(id)?.value || '');
+            const data = collectFormData();
+
+            // Labels lisibles pour la grille Word
+            const labels = {
+                'org-1':"Préparation de la leçon",'org-2':"Tenue du cahier de textes de la classe",'org-3':"Gestion cahiers / outils élèves",'org-4':"Réalisation du programme",
+                'mai-1':"Maîtrise langue d'enseignement",'mai-2':"Maîtrise connaissances / compétences",'mai-3':"Maîtrise didactique de la discipline",
+                'ing-1':"Construction intégrative des apprentissages",'ing-2':"Mise en œuvre d'approches adéquates",'ing-3':"Scénarisation pédagogique",'ing-4':"Utilisation outils / supports",
+                'ges-1':"Aménagement espace d'apprentissage",'ges-2':"Utilisation techniques d'animation",'ges-3':"Communication",
+                'eva-1':"Recours à différents types d'évaluation",'eva-2':"Mise en œuvre de la remédiation",'eva-3':"Conformité des épreuves de contrôle",
+                'pro-1':"Adhésion formation / autoformation",'pro-2':"Initiative et innovation",'pro-3':"Analyse réflexive des pratiques"
+            };
+
+            const FONT = "Times New Roman", SZ = 20; // demi-points => 10pt
+            const BLACK = { style: D.BorderStyle.SINGLE, size: 6, color: "000000" };
+            const noBorder = { top:{style:D.BorderStyle.NONE}, bottom:{style:D.BorderStyle.NONE}, left:{style:D.BorderStyle.NONE}, right:{style:D.BorderStyle.NONE} };
+
+            const run = (text, bold=false) => new D.TextRun({ text, bold, font: FONT, size: SZ });
+            const p = (children, align) => new D.Paragraph({ children: Array.isArray(children)?children:[children], alignment: align, spacing:{ after: 20, before: 20 } });
+            const pt = (text, bold=false, align) => p([run(text, bold)], align);
+            const cell = (children, opts={}) => new D.TableCell({ children: Array.isArray(children)?children:[children],
+                columnSpan: opts.colSpan, verticalMerge: opts.vMerge, width: opts.width, shading: opts.shade ? { fill: opts.shade } : undefined,
+                verticalAlign: D.VerticalAlign.CENTER });
+            const fullW = { size: 100, type: D.WidthType.PERCENTAGE };
+            const table = (rows, opts={}) => new D.Table({ rows, width: fullW, alignment: D.AlignmentType.CENTER,
+                borders: opts.noBorder ? noBorder : undefined, columnWidths: opts.columnWidths });
+
+            // En-tête
+            const header = table([ new D.TableRow({ children: [
+                cell([ pt("Année scolaire : "+val('input-year'), true, D.AlignmentType.CENTER),
+                       pt("Commissariat Régional de l'Enseignement", true, D.AlignmentType.CENTER),
+                       pt(val('input-region'), true, D.AlignmentType.CENTER) ]),
+                cell([ pt("RÉPUBLIQUE TUNISIENNE", true, D.AlignmentType.CENTER),
+                       pt("Ministère de l'Éducation", true, D.AlignmentType.CENTER),
+                       pt("Inspection Générale de la Pédagogie de l'Éducation", true, D.AlignmentType.CENTER) ])
+            ]})], { noBorder:true });
+
+            const title = table([ new D.TableRow({ children: [
+                cell([ pt("RAPPORT D'ÉVALUATION", true, D.AlignmentType.CENTER), pt("du travail de l'enseignant", false, D.AlignmentType.CENTER) ]) ]})]);
+
+            const civ = val('input-civility');
+            // Identification
+            const idt = table([
+                new D.TableRow({ children: [
+                    cell([ p([run("Nom et prénom de l'enseignant(e) : ", true), run(civ+" "+val('input-teacher'), true)]) ], {width:{size:50,type:D.WidthType.PERCENTAGE}}),
+                    cell([ p([run("Grade actuel : ", true), run(val('input-grade'))]) ], {width:{size:50,type:D.WidthType.PERCENTAGE}})
+                ]}),
+                new D.TableRow({ children: [
+                    cell([ p([run("Établissement : ", true), run(val('input-establishment'))]) ]),
+                    cell([ p([run("Date de recrutement : ", true), run(val('input-recrutement')||"—")]),
+                           p([run("Date de la dernière visite : ", true), run(val('input-last-visit')||"—")]) ])
+                ]})
+            ]);
+
+            const eff = (val('input-students-present')||'—')+" / "+(val('input-students-total')||'—');
+            const visite = table([
+                new D.TableRow({ children: [
+                    cell([ p([run("Date de la visite : ", true), run(val('input-date'))]) ]),
+                    cell([ p([run("Classe : ", true), run(val('input-class'))]) ]),
+                    cell([ p([run("Nombre d'élèves : ", true), run(eff)]) ])
+                ]}),
+                new D.TableRow({ children: [ cell([ p([run("Leçon : ", true), run(val('input-subject'))]) ], {colSpan:3}) ]})
+            ]);
+
+            const descr = table([ new D.TableRow({ children: [
+                cell([ pt("Description du déroulement de la leçon", true), pt(val('desc-lesson')) ]) ]})]);
+
+            // Grille
+            const gridRows = [ new D.TableRow({ tableHeader:true, children: [
+                cell([ pt("Compétences", true) ], {shade:"D9D9D9"}),
+                cell([ pt("Composantes de la compétence", true) ], {shade:"D9D9D9"}),
+                cell([ pt("Observations (arguments, propositions…)", true) ], {shade:"D9D9D9"})
+            ]})];
+            gridData.forEach((catObj, idx) => {
+                catObj.items.forEach((item, i) => {
+                    const children = [];
+                    if(i === 0) children.push(cell([ pt(catObj.cat, true) ], { vMerge: D.VerticalMergeType.RESTART }));
+                    else children.push(cell([ p([]) ], { vMerge: D.VerticalMergeType.CONTINUE }));
+                    children.push(cell([ pt(labels[item.id] || item.label) ]));
+                    if(i === 0) children.push(cell([ pt(data.observations['cat_'+idx] || '') ], { vMerge: D.VerticalMergeType.RESTART }));
+                    else children.push(cell([ p([]) ], { vMerge: D.VerticalMergeType.CONTINUE }));
+                    gridRows.push(new D.TableRow({ children }));
+                });
+            });
+            const grid = table(gridRows, { columnWidths: [2400, 3000, 5400] });
+
+            // Synthèse
+            const synthChildren = [ pt("Synthèse des remarques et des recommandations", true) ];
+            val('global-comment').split('\n').forEach(line => synthChildren.push(pt(line)));
+            const synth = table([ new D.TableRow({ children: [ cell(synthChildren) ] })]);
+
+            // Note + signatures
+            const sig = table([ new D.TableRow({ children: [
+                cell([ p([run("Note : ", true), run(val('final-score-display')+" / 20", true)]) ]),
+                cell([ pt("Fait à : "+val('footer-place-inspector')+"   le : "+val('footer-date-inspector'), false, D.AlignmentType.CENTER),
+                       pt("Signature de l'inspecteur (trice)", true, D.AlignmentType.CENTER) ]),
+                cell([ pt("Lu et reçu copie conforme", false, D.AlignmentType.RIGHT),
+                       pt("Fait à : "+val('footer-place-teacher')+"   le : "+val('footer-date-teacher'), false, D.AlignmentType.RIGHT),
+                       pt("Signature de l'enseignant(e)", true, D.AlignmentType.RIGHT) ])
+            ]})], { noBorder:true });
+
+            const spacer = () => new D.Paragraph({ children:[], spacing:{ after: 80 } });
+            const doc = new D.Document({
+                styles: { default: { document: { run: { font: FONT, size: SZ } } } },
+                sections: [{
+                    properties: { page: { margin: { top: 720, bottom: 720, left: 850, right: 850 } } },
+                    children: [ header, spacer(), title, spacer(),
+                        p([run("L'inspecteur(trice) : ", true), run(val('input-inspector')||"................................")]),
+                        p([run("Discipline : ", true), run("Gestion"), run("          Nature de la visite : ", true), run(val('input-nature'))]),
+                        spacer(), idt, spacer(), visite, spacer(), descr, spacer(), grid, spacer(), synth, spacer(), sig ]
+                }]
+            });
+
+            notify("Génération du Word en cours...", "info");
+            D.Packer.toBlob(doc).then(blob => {
+                const teacher = (val('input-teacher')||'rapport').replace(/[^\w\-]+/g,'_');
+                const date = val('input-date').replace(/[^\w\-]+/g,'_');
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `Rapport_${teacher}${date?'_'+date:''}.docx`;
+                a.click(); URL.revokeObjectURL(a.href);
+                notify("Document Word généré.", "success");
+            }).catch(e => notify("Erreur Word : "+e.message, "error", 5000));
         };
 
         // ---------- SYNTHESE AUTO (accordée au genre) ----------
