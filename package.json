@@ -1,7 +1,7 @@
 {
   "name": "rapport-inspection",
   "productName": "Rapport Inspection",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Application de rédaction des rapports d'évaluation d'inspection pédagogique (discipline Gestion).",
   "author": "haythembenjima",
   "license": "MIT",
@@ -39,7 +39,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Rapport Inspection",
       "installerIcon": "electron/icon.ico",
-      "uninstallerIcon": "electron/icon.ico"
+      "uninstallerIcon": "electron/icon.ico",
+      "artifactName": "Rapport-Inspection-Setup.${ext}"
     }
   }
 }

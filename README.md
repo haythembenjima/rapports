@@ -1,13 +1,17 @@
 # Rapport d'Inspection — Gestion
 
-[![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/v1.0.0/Rapport.Inspection.Setup.1.0.0.exe)
+[![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
 [![Dernière version](https://img.shields.io/github/v/release/haythembenjima/rapports?style=for-the-badge&label=version)](https://github.com/haythembenjima/rapports/releases/latest)
 
-> **⬇️ Télécharger l'application Windows :** [**Rapport Inspection — Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/download/v1.0.0/Rapport.Inspection.Setup.1.0.0.exe)
+> **⬇️ Télécharger l'application Windows :** [**Rapport Inspection — Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
+>
+> Ce lien pointe toujours vers la **dernière version** publiée.
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
 (discipline **Gestion**, modèle officiel du Ministère de l'Éducation tunisien).
+
+![Aperçu de l'application](./docs/screenshot.png)
 
 L'application est un **fichier unique** : [`index.html`](./index.html).
 Elle fonctionne de trois façons :
@@ -44,7 +48,7 @@ Prérequis : [Node.js](https://nodejs.org) installé.
 
 ```bash
 npm install
-npm run dist          # crée dist/Rapport Inspection Setup x.y.z.exe (installateur)
+npm run dist          # crée dist/Rapport-Inspection-Setup.exe (installateur)
 # ou
 npm run dist:portable # crée une version portable (.exe sans installation)
 npm start             # lance l'app en mode développement
