@@ -1167,6 +1167,13 @@ Données :\n${ctx}`;
              notify("Synthèse automatique générée.", "success");
         };
 
+        // Avant impression, recalcule la hauteur des zones de texte sous le style
+        // d'impression (police 10pt en gras) afin d'éviter que la dernière ligne
+        // soit tronquée au saut de page.
+        window.addEventListener('beforeprint', () => {
+            document.querySelectorAll('textarea').forEach(t => { t.style.height = 'auto'; t.style.height = (t.scrollHeight + 4) + 'px'; });
+        });
+
         initApp();
     </script>
 </body>
