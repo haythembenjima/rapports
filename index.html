@@ -291,7 +291,7 @@
                 <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
-                        <tr><th class="p-3 border-b">Enseignant</th><th class="p-3 border-b">Établissement</th><th class="p-3 border-b">Date</th><th class="p-3 border-b">Note</th><th class="p-3 border-b text-center hidden" id="col-actions-header">Actions</th></tr>
+                        <tr><th class="p-3 border-b">Enseignant</th><th class="p-3 border-b">Établissement</th><th class="p-3 border-b">Date</th><th class="p-3 border-b">Note</th><th class="p-3 border-b text-center" id="col-actions-header">Actions</th></tr>
                     </thead>
                     <tbody id="history-body"></tbody>
                 </table>
@@ -932,9 +932,10 @@ Données :\n${ctx}`;
                     <td class="p-2 border-b">${escapeHtml(d.establishment) || '-'}</td>
                     <td class="p-2 border-b">${escapeHtml(d.date) || 'N/A'}</td>
                     <td class="p-2 border-b font-bold">${escapeHtml(d.score) || '-'}</td>
-                    <td class="p-2 border-b text-center ${isAdmin ? '' : 'hidden'}" id="col-actions-${d.id}">
-                        <button class="text-blue-600 mr-2" onclick="window.editEntry('${d.id}')" title="Modifier"><i class="fas fa-edit"></i></button>
-                        <button class="text-red-600" onclick="window.deleteEntry('${d.id}')" title="Supprimer"><i class="fas fa-trash"></i></button>
+                    <td class="p-2 border-b text-center" id="col-actions-${d.id}">
+                        <button class="text-sky-700 mr-2" onclick="window.exportWordFromHistory('${d.id}')" title="Exporter en Word (.docx)"><i class="fas fa-file-word"></i></button>
+                        ${isAdmin ? `<button class="text-blue-600 mr-2" onclick="window.editEntry('${d.id}')" title="Modifier"><i class="fas fa-edit"></i></button>
+                        <button class="text-red-600" onclick="window.deleteEntry('${d.id}')" title="Supprimer"><i class="fas fa-trash"></i></button>` : ''}
                     </td>
                 </tr>`;
             });
@@ -1009,7 +1010,6 @@ Données :\n${ctx}`;
         window.toggleAdmin = async function() {
              if(isAdmin) {
                  isAdmin=false;
-                 document.getElementById('col-actions-header').classList.add('hidden');
                  document.getElementById('admin-actions').classList.add('hidden');
                  document.getElementById('admin-login-btn').innerHTML = '<i class="fas fa-lock"></i> Admin';
                  window.renderHistory();
@@ -1020,7 +1020,6 @@ Données :\n${ctx}`;
              if(p === null) return;
              if(await hashText(p) === currentAdminPassHash) {
                  isAdmin=true;
-                 document.getElementById('col-actions-header').classList.remove('hidden');
                  document.getElementById('admin-actions').classList.remove('hidden');
                  document.getElementById('admin-login-btn').innerHTML = '<i class="fas fa-unlock"></i> Sortir';
                  window.renderHistory();
@@ -1154,12 +1153,25 @@ Données :\n${ctx}`;
         };
 
         // ---------- EXPORT WORD (.docx natif via docx.js) ----------
+        // Depuis le formulaire courant
         window.exportWord = function() {
             if(!validateForm()) return;
             if(typeof docx === 'undefined') { notify("Bibliothèque Word non chargée (connexion requise).", "error", 5000); return; }
+            _generateWord(collectFormData());
+        };
+
+        // Depuis un rapport de l'historique (sans le rouvrir)
+        window.exportWordFromHistory = function(id) {
+            if(typeof docx === 'undefined') { notify("Bibliothèque Word non chargée (connexion requise).", "error", 5000); return; }
+            const rep = currentReports.find(r => r.id === id);
+            const data = rep && rep.form;
+            if(!data) { notify("Ce rapport ne contient pas de données complètes (ancien format) : ouvrez-le puis ré-enregistrez-le.", "warn", 6000); return; }
+            _generateWord(data);
+        };
+
+        function _generateWord(data) {
             const D = docx;
-            const val = id => (document.getElementById(id)?.value || '');
-            const data = collectFormData();
+            const val = id => (data.fields?.[id] || '');
 
             // Labels lisibles pour la grille Word
             const labels = {
