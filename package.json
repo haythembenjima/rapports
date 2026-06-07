@@ -8,8 +8,8 @@
   "main": "electron/main.cjs",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win nsis",
-    "dist:portable": "electron-builder --win portable"
+    "dist": "electron-builder --win nsis --publish never",
+    "dist:portable": "electron-builder --win portable --publish never"
   },
   "devDependencies": {
     "electron": "^31.7.6",
