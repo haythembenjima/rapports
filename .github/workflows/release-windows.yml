@@ -1,0 +1,56 @@
+name: Release Windows
+
+# Construit l'installateur Windows et le publie dans une GitHub Release
+# (lien de téléchargement permanent) à chaque tag « v* », ou manuellement.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de la release (ex. v1.0.0)"
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows installer (NSIS)
+        run: npm run dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Rapport Inspection ${{ github.event.inputs.tag || github.ref_name }}
+          body: |
+            Installateur Windows de l'application **Rapport d'Inspection — Gestion**.
+
+            ## Installation
+            Téléchargez le fichier `.exe` ci-dessous et exécutez-le
+            (raccourci bureau + menu Démarrer créés automatiquement).
+
+            ## Contenu
+            - Saisie du rapport d'évaluation (grille officielle, 20 indicateurs).
+            - Note /20 calculée automatiquement et modifiable à la main.
+            - Synthèse automatique ou assistée par IA, export **PDF** et **Word (.docx)**.
+            - Historique, statistiques, import/export.
+          files: dist/*.exe
+          draft: false
+          prerelease: false
