@@ -275,7 +275,9 @@
                             <button onclick="window.deleteAll()" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs shadow" title="Supprimer tous les rapports">Vider</button>
                         </div>
                         <button onclick="window.exportToCSV()" title="Exporter en CSV (Excel)" class="text-green-600 hover:text-green-800"><i class="fas fa-file-excel fa-lg"></i></button>
+                        <button onclick="window.importReport()" title="Importer un rapport (.json)" class="text-purple-600 hover:text-purple-800"><i class="fas fa-file-import fa-lg"></i></button>
                         <button onclick="window.refreshStats()" title="Rafraîchir" class="text-blue-600 hover:text-blue-800"><i class="fas fa-sync fa-lg"></i></button>
+                        <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="window.handleImportFile(event)">
                     </div>
                 </div>
                 <div class="overflow-x-auto">
@@ -1039,6 +1041,38 @@ Données :\n${ctx}`;
                 window.renderHistory(); window.renderStats();
             } else { loadFirebaseStats(); }
             notify("Historique rafraîchi.", "info");
+        };
+
+        // ---------- IMPORT D'UN RAPPORT (.json) ----------
+        // Accepte soit { fields, scores, observations }, soit un document complet { form: {...} }.
+        window.importReport = function() {
+            document.getElementById('import-file').click();
+        };
+
+        window.handleImportFile = function(ev) {
+            const file = ev.target.files && ev.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                try {
+                    const parsed = JSON.parse(reader.result);
+                    const data = parsed.form || parsed;
+                    if(!data.fields && !data.scores && !data.observations) throw new Error("format non reconnu");
+                    window.switchTab('form');
+                    currentEditingId = null;       // import = nouveau rapport
+                    fillFormData(data);
+                    document.querySelectorAll('textarea').forEach(t => window.autoResize(t));
+                    notify("Rapport importé. Vérifiez les champs puis enregistrez-le pour l'ajouter à l'historique.", "info", 6000);
+                    if(confirm("Enregistrer immédiatement ce rapport dans l'historique ?")) {
+                        await window.handleSave();
+                    }
+                } catch(e) {
+                    notify("Fichier invalide : " + e.message, "error", 5000);
+                } finally {
+                    ev.target.value = '';        // permet de réimporter le même fichier
+                }
+            };
+            reader.readAsText(file);
         };
 
         // ---------- EXPORT CSV ----------
