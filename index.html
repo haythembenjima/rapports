@@ -241,9 +241,9 @@
             <!-- PIED DE PAGE -->
             <div class="mt-4 flex justify-between items-end">
                 <div class="w-1/3"><p class="font-bold text-lg border-2 border-black p-2 inline-block">Note : <input type="number" step="0.01" min="0" max="20" id="final-score-display" class="w-20 text-center font-bold focus:outline-none bg-transparent" placeholder="--" oninput="window.onScoreManualEdit()"> / 20</p>
-                    <div class="no-print text-xs mt-1 flex items-center gap-2">
-                        <span id="score-mode" class="text-gray-400"><i class="fas fa-calculator"></i> Note calculée automatiquement</span>
-                        <button type="button" onclick="window.resetAutoScore()" id="score-auto-btn" class="hidden text-blue-600 underline font-sans"><i class="fas fa-rotate-left"></i> recalculer</button>
+                    <div class="no-print text-xs mt-1 flex items-center gap-2 font-sans">
+                        <span id="score-mode" class="text-gray-400"><i class="fas fa-calculator"></i> Note calculée auto. — <span class="text-blue-600"><i class="fas fa-pen"></i> cliquez dans le champ pour la modifier</span></span>
+                        <button type="button" onclick="window.resetAutoScore()" id="score-auto-btn" class="hidden text-blue-600 underline"><i class="fas fa-rotate-left"></i> recalculer</button>
                     </div>
                 </div>
                 <div class="w-1/3 text-center"><p>Fait à : <input type="text" id="footer-place-inspector" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"> le : <input type="text" id="footer-date-inspector" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"></p><p class="font-bold mt-4">Signature de l'inspecteur (trice)</p></div>
@@ -634,7 +634,7 @@
             manualScore = false;
             const m = document.getElementById('score-mode');
             const b = document.getElementById('score-auto-btn');
-            if(m) { m.innerHTML = '<i class="fas fa-calculator"></i> Note calculée automatiquement'; m.classList.replace('text-orange-600', 'text-gray-400'); }
+            if(m) { m.innerHTML = '<i class="fas fa-calculator"></i> Note calculée auto. — <span class="text-blue-600"><i class="fas fa-pen"></i> cliquez dans le champ pour la modifier</span>'; m.classList.replace('text-orange-600', 'text-gray-400'); }
             if(b) b.classList.add('hidden');
             window.calculateScore();
             window.saveDraft();
