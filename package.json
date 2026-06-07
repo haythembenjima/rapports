@@ -28,7 +28,8 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "electron/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -36,7 +37,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Rapport Inspection"
+      "shortcutName": "Rapport Inspection",
+      "installerIcon": "electron/icon.ico",
+      "uninstallerIcon": "electron/icon.ico"
     }
   }
 }
