@@ -278,6 +278,21 @@
                 </table>
                 </div>
             </div>
+
+            <!-- BANQUE DE PHRASES ÉDITABLE -->
+            <div class="bg-white rounded border border-gray-200 mt-6 p-4">
+                <div class="flex justify-between items-center flex-wrap gap-2 mb-2">
+                    <span class="font-bold text-gray-700"><i class="fas fa-book"></i> Banque de phrases (observations &amp; recommandations)</span>
+                    <span id="bank-status" class="text-xs text-gray-400">banque par défaut</span>
+                </div>
+                <p class="text-xs text-gray-500 mb-3">Le langage généré pour les <b>observations</b> et les <b>recommandations</b> provient d'un fichier JSON éditable. Exportez-le, ajoutez vos propres formulations (plusieurs variantes possibles par niveau 0–5), puis ré-importez-le. Une variante est choisie au hasard à chaque génération.</p>
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="window.exportPhraseBank()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-xs font-bold shadow"><i class="fas fa-download"></i> Exporter (JSON)</button>
+                    <button onclick="document.getElementById('bank-import-file').click()" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-xs font-bold shadow"><i class="fas fa-upload"></i> Importer (JSON)</button>
+                    <button onclick="window.resetPhraseBank()" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-xs font-bold shadow"><i class="fas fa-rotate-left"></i> Réinitialiser</button>
+                    <input type="file" id="bank-import-file" accept="application/json,.json" class="hidden" onchange="window.handlePhraseBankImport(event)">
+                </div>
+            </div>
         </div>
     </div>
 
@@ -420,6 +435,7 @@
             window.generateRadios();
             currentAdminPassHash = await hashText(DEFAULT_PASS);
             attachAutoDraft();
+            updateBankStatus();
 
             try {
                 const app = initializeApp(firebaseConfig);
@@ -539,6 +555,96 @@
             'pro-3': "analyser d'une façon continue ses pratiques professionnelles"
         };
 
+        // ---------- BANQUE DE PHRASES ÉDITABLE (observations + recommandations) ----------
+        // Chaque valeur peut être une chaîne OU un tableau de variantes (choisies au hasard).
+        // L'utilisateur peut exporter / éditer / importer un JSON qui surcharge les valeurs par défaut.
+        const PHRASES_KEY = 'phrases_custom_v1';
+        let CUSTOM_BANK = {};
+        try { CUSTOM_BANK = JSON.parse(localStorage.getItem(PHRASES_KEY) || '{}') || {}; } catch(e) { CUSTOM_BANK = {}; }
+
+        function pickVariant(v) {
+            if(Array.isArray(v)) { const a = v.filter(x => x && String(x).trim()); return a.length ? a[Math.floor(Math.random()*a.length)] : ''; }
+            return v ? String(v) : '';
+        }
+        function hasVal(v){ return v !== undefined && v !== null && !(Array.isArray(v) && v.filter(x=>x&&String(x).trim()).length===0) && !(typeof v==='string' && !v.trim()); }
+        // Observation pour un indicateur à un niveau donné (custom prioritaire, sinon défaut)
+        function obsPhrase(id, score) {
+            const c = CUSTOM_BANK.observations && CUSTOM_BANK.observations[id] ? CUSTOM_BANK.observations[id][score] : undefined;
+            const v = hasVal(c) ? c : (commentsDB[id] ? commentsDB[id][score] : '');
+            return pickVariant(v);
+        }
+        // Recommandation pour un indicateur (custom prioritaire, sinon défaut)
+        function recoPhrase(id) {
+            const c = CUSTOM_BANK.recommandations ? CUSTOM_BANK.recommandations[id] : undefined;
+            const v = hasVal(c) ? c : recoDB[id];
+            return pickVariant(v);
+        }
+        function updateBankStatus() {
+            const el = document.getElementById('bank-status'); if(!el) return;
+            const has = (CUSTOM_BANK.observations && Object.keys(CUSTOM_BANK.observations).length) || (CUSTOM_BANK.recommandations && Object.keys(CUSTOM_BANK.recommandations).length);
+            el.textContent = has ? '✏️ banque personnalisée active' : 'banque par défaut';
+            el.className = 'text-xs ' + (has ? 'text-orange-600 font-bold' : 'text-gray-400');
+        }
+
+        // Exporte un modèle complet (défauts fusionnés avec le custom) que l'utilisateur peut éditer.
+        window.exportPhraseBank = function() {
+            const legend = {};
+            const observations = {};
+            const recommandations = {};
+            gridData.forEach(cat => cat.items.forEach(item => {
+                legend[item.id] = cat.cat + " — " + item.label;
+                const lvls = {};
+                for(let s=0;s<=5;s++) {
+                    const c = CUSTOM_BANK.observations && CUSTOM_BANK.observations[item.id] ? CUSTOM_BANK.observations[item.id][s] : undefined;
+                    const base = hasVal(c) ? c : (commentsDB[item.id] ? commentsDB[item.id][s] : "");
+                    lvls[s] = Array.isArray(base) ? base : [base];
+                }
+                observations[item.id] = lvls;
+                const rc = CUSTOM_BANK.recommandations ? CUSTOM_BANK.recommandations[item.id] : undefined;
+                const rbase = hasVal(rc) ? rc : recoDB[item.id];
+                recommandations[item.id] = Array.isArray(rbase) ? rbase : [rbase];
+            }));
+            const out = {
+                "_aide": "Ajoutez autant de variantes que vous voulez dans chaque liste. Niveaux : 0=néant,1=insuffisant,2=passable,3=bien,4=très bien,5=excellent. Une variante est tirée au hasard. Conservez la structure et réimportez ce fichier.",
+                "_indicateurs": legend,
+                "observations": observations,
+                "recommandations": recommandations
+            };
+            const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'banque_phrases_inspection.json';
+            a.click(); URL.revokeObjectURL(a.href);
+            notify("Banque de phrases exportée.", "success");
+        };
+
+        window.handlePhraseBankImport = function(event) {
+            const file = event.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if(typeof data !== 'object' || (!data.observations && !data.recommandations)) {
+                        notify("Fichier invalide : il doit contenir « observations » et/ou « recommandations ».", "error", 6000); return;
+                    }
+                    CUSTOM_BANK = { observations: data.observations || {}, recommandations: data.recommandations || {} };
+                    localStorage.setItem(PHRASES_KEY, JSON.stringify(CUSTOM_BANK));
+                    updateBankStatus();
+                    notify("Banque de phrases importée et activée.", "success");
+                } catch(err) { notify("Erreur de lecture du JSON : " + err.message, "error", 6000); }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        };
+
+        window.resetPhraseBank = function() {
+            if(!confirm("Réinitialiser la banque de phrases (revenir aux formulations par défaut) ?")) return;
+            CUSTOM_BANK = {};
+            try { localStorage.removeItem(PHRASES_KEY); } catch(e) {}
+            updateBankStatus();
+            notify("Banque de phrases réinitialisée.", "info");
+        };
+
         window.updateCategoryObservation = function(catIndex) {
             const cat = gridData[catIndex];
             const txtArea = document.getElementById(`obs-cat-${catIndex}`);
@@ -558,12 +664,8 @@
 
                 if (!checked) allRated = false;
                 else {
-                    let text = "";
-                    if(commentsDB[item.id]) {
-                        if (commentsDB[item.id][score]) text = commentsDB[item.id][score];
-                        else if (score <= 2) text = commentsDB[item.id][0];
-                        else text = commentsDB[item.id][3] || commentsDB[item.id][5];
-                    }
+                    let text = obsPhrase(item.id, score);
+                    if(!text) text = obsPhrase(item.id, score <= 2 ? 0 : 3) || obsPhrase(item.id, 5);
                     if(text) itemsData.push({ score: score, text: text });
                 }
             });
@@ -1331,12 +1433,12 @@ Données :\n${ctx}`;
                     const r = document.querySelector(`input[name="${item.id}"]:checked`);
                     const val = r ? parseInt(r.value) : -1;
                     if(val !== -1) {
-                         if(val >= 4 && commentsDB[item.id]?.[val]) {
-                             let t = commentsDB[item.id][val];
-                             if(t.endsWith('.')) t = t.slice(0, -1);
-                             pointsForts.push(t);
-                         } else if(val <= 3 && recoDB[item.id]) {
-                             recommandations.push(recoDB[item.id]);
+                         if(val >= 4) {
+                             let t = obsPhrase(item.id, val);
+                             if(t) { if(t.endsWith('.')) t = t.slice(0, -1); pointsForts.push(t); }
+                         } else if(val <= 3) {
+                             const rec = recoPhrase(item.id);
+                             if(rec) recommandations.push(rec);
                          }
                     }
                  });

@@ -32,6 +32,7 @@ Elle fonctionne de trois façons :
 - **Export PDF** et **export Word (.docx)**.
 - **Historique** des rapports (Firebase ou local), recherche, statistiques, export CSV.
 - **Import** d'un rapport au format `.json` (pour le retrouver dans l'historique).
+- **Banque de phrases éditable** : le langage des *observations* et des *recommandations* est exportable/importable en JSON ; plusieurs variantes par niveau (0–5) sont tirées au hasard pour éviter les répétitions (onglet Historique → *Banque de phrases*).
 
 ## Construire l'application Windows (.exe)
 
