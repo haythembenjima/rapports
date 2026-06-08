@@ -127,90 +127,59 @@
         <!-- VUE 1 : FORMULAIRE -->
         <div id="view-form">
 
-            <!-- EN-TÊTE EXACT SELON LE MODÈLE OFFICIEL -->
-            <div class="flex justify-between items-start mb-6 text-sm font-bold">
-                <div class="text-center leading-snug">
-                    <p>Année Scolaire : <input type="text" id="input-year" value="2025/2026" class="w-24 text-center border-b border-gray-400 focus:outline-none bg-transparent"></p>
-                    <p>Commissariat Régional de l'Enseignement</p>
-                    <p><input type="text" id="input-region" placeholder="Tunis 1" class="w-32 text-center border-b border-gray-400 focus:outline-none bg-transparent"></p>
-                </div>
-                <div class="text-center leading-snug">
-                    <p class="uppercase">RÉPUBLIQUE TUNISIENNE</p>
-                    <p>Ministère de l'Éducation</p>
-                    <p>Inspection Générale de la Pédagogie de l'Éducation</p>
-                </div>
-            </div>
-
-            <!-- TITRE ENCADRÉ -->
-            <div class="flex flex-col items-center mb-8">
-                <div class="text-center text-xl font-bold uppercase border-2 border-black p-2 w-3/4 md:w-1/2">
-                    Rapport d'évaluation<br><span class="text-base font-normal normal-case">du travail de l'enseignant</span>
-                </div>
-            </div>
-
-            <!-- INFOS INSPECTEUR ET VISITE -->
-            <div class="flex justify-between items-end text-sm mb-6">
+            <!-- EN-TÊTE EXACT SELON LE MODÈLE OFFICIEL (compact, sans cadre) -->
+            <div class="flex justify-between items-start mb-4 text-sm font-bold leading-tight">
                 <div>
-                    <p class="font-bold">L'inspecteur(trice) : <input type="text" id="input-inspector" class="w-56 border-b border-gray-400 focus:outline-none bg-transparent font-bold" placeholder="Nom Prénom"></p>
-                    <p class="font-bold mt-2">Discipline : Gestion</p>
+                    <p class="text-base" style="font-variant: small-caps;">République Tunisienne</p>
+                    <p style="font-variant: small-caps;">Ministère de l'Éducation</p>
+                    <p class="pl-3">Inspection Générale de la Pédagogie de l'Éducation</p>
                 </div>
-                <div>
-                    <p class="font-bold">Nature de la visite :
-                        <select id="input-nature" class="border-b border-gray-400 focus:outline-none bg-transparent">
-                            <option value="Inspection">Inspection</option>
-                            <option value="Assistance">Assistance</option>
-                            <option value="Accompagnement">Accompagnement</option>
-                        </select>
-                    </p>
+                <div class="text-left">
+                    <p>Année Scolaire : <input type="text" id="input-year" value="2025/2026" class="w-24 border-b border-gray-400 focus:outline-none bg-transparent"></p>
+                    <p>&nbsp;</p>
+                    <p>Commissariat Régional de l'Enseignement <input type="text" id="input-region" placeholder="" class="w-24 border-b border-gray-400 focus:outline-none bg-transparent"></p>
                 </div>
             </div>
 
-            <!-- IDENTIFICATION (TABLEAUX) -->
-            <table class="w-full text-sm border-collapse border border-black mb-4">
+            <!-- TITRE + INSPECTEUR (ENCADRÉ, 2 cellules côte à côte) -->
+            <table class="w-full border-collapse border-2 border-black mb-3">
                 <tr>
-                    <td class="border border-black p-2 w-1/2 align-top">
-                        <span class="font-bold">Nom et prénom de l'enseignant(e) :</span><br>
-                        <select id="input-civility" class="focus:outline-none bg-transparent mt-1"><option value="M.">M.</option><option value="Mme">Mme</option><option value="Mlle">Mlle</option></select>
-                        <input type="text" id="input-teacher" class="border-b border-gray-400 focus:outline-none bg-transparent w-48 font-bold" placeholder="Nom Prénom">
+                    <td class="border-2 border-black p-3 text-center align-middle font-serif" style="width:58%;">
+                        <span class="text-2xl font-bold">Rapport d'évaluation<br>du travail de l'enseignant</span>
                     </td>
-                    <td class="border border-black p-2 w-1/2 align-top">
-                        <span class="font-bold">Grade actuel :</span><br>
-                        <input type="text" id="input-grade" class="w-full border-b border-gray-400 focus:outline-none bg-transparent mt-1">
-                    </td>
-                </tr>
-                <tr>
-                    <td class="border border-black p-2 align-top">
-                        <span class="font-bold">Établissement :</span><br>
-                        <input type="text" id="input-establishment" class="w-full border-b border-gray-400 focus:outline-none bg-transparent mt-1">
-                    </td>
-                    <td class="border border-black p-2 align-top leading-relaxed">
-                        <span class="font-bold">Date de recrutement :</span> <input type="text" id="input-recrutement" placeholder="JJ/MM/AAAA" class="w-32 border-b border-gray-400 focus:outline-none bg-transparent"><br>
-                        <span class="font-bold">Date de la dernière visite :</span> <input type="text" id="input-last-visit" placeholder="JJ/MM/AAAA" class="w-32 border-b border-gray-400 focus:outline-none bg-transparent">
+                    <td class="border-2 border-black p-3 align-top text-base font-bold" style="width:42%;">
+                        <p>L'inspecteur : <input type="text" id="input-inspector" class="w-40 border-b border-gray-400 focus:outline-none bg-transparent font-bold" placeholder=""></p>
+                        <p class="mt-3">Discipline : Gestion</p>
                     </td>
                 </tr>
             </table>
 
-            <table class="w-full text-sm border-collapse border border-black mb-6">
+            <!-- NATURE DE LA VISITE (centré, sans cadre) -->
+            <p class="text-center font-bold text-base my-3">Nature de la visite :
+                <select id="input-nature" class="border-b border-gray-400 focus:outline-none bg-transparent font-bold">
+                    <option value="Inspection">Inspection</option>
+                    <option value="Assistance">Assistance</option>
+                    <option value="Accompagnement">Accompagnement</option>
+                </select>
+            </p>
+
+            <!-- IDENTIFICATION (1 tableau, 2 cellules : enseignant | visite) -->
+            <table class="w-full text-sm border-collapse border-2 border-black mb-5">
                 <tr>
-                    <td class="border border-black p-2 w-1/3 align-top">
-                        <span class="font-bold">Date de la visite :</span><br>
-                        <input type="text" id="input-date" placeholder="JJ/MM/AAAA" class="w-full border-b border-gray-400 focus:outline-none bg-transparent mt-1">
+                    <td class="border-2 border-black p-2 w-1/2 align-top leading-relaxed">
+                        <p class="font-bold">Nom et prénom de l'enseignant (e) :
+                            <select id="input-civility" class="focus:outline-none bg-transparent"><option value="M.">M.</option><option value="Mme">Mme</option><option value="Mlle">Mlle</option></select>
+                            <input type="text" id="input-teacher" class="border-b border-gray-400 focus:outline-none bg-transparent w-40 font-bold" placeholder="Nom Prénom">
+                        </p>
+                        <p class="font-bold">Grade actuel : <input type="text" id="input-grade" class="w-40 border-b border-gray-400 focus:outline-none bg-transparent"></p>
+                        <p class="font-bold">Établissement : <input type="text" id="input-establishment" class="w-48 border-b border-gray-400 focus:outline-none bg-transparent"></p>
+                        <p class="font-bold">Date de recrutement : <input type="text" id="input-recrutement" placeholder="JJ/MM/AAAA" class="w-28 border-b border-gray-400 focus:outline-none bg-transparent"></p>
+                        <p class="font-bold">Date de la dernière visite : <input type="text" id="input-last-visit" placeholder="JJ/MM/AAAA" class="w-28 border-b border-gray-400 focus:outline-none bg-transparent"></p>
                     </td>
-                    <td class="border border-black p-2 w-1/3 align-top">
-                        <span class="font-bold">Classe :</span><br>
-                        <input type="text" id="input-class" class="w-full border-b border-gray-400 focus:outline-none bg-transparent mt-1">
-                    </td>
-                    <td class="border border-black p-2 w-1/3 align-top">
-                        <span class="font-bold">Nombre d'élèves :</span><br>
-                        <div class="mt-1">
-                            <input type="text" id="input-students-present" class="w-8 border-b border-gray-400 focus:outline-none text-center bg-transparent"> / <input type="text" id="input-students-total" class="w-8 border-b border-gray-400 focus:outline-none text-center bg-transparent">
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="3" class="border border-black p-2 align-top">
-                        <span class="font-bold">Leçon :</span>
-                        <input type="text" id="input-subject" class="w-5/6 border-b border-gray-400 focus:outline-none bg-transparent ml-2">
+                    <td class="border-2 border-black p-2 w-1/2 align-top leading-relaxed">
+                        <p class="font-bold">Date de la visite : <input type="text" id="input-date" placeholder="JJ/MM/AAAA" class="w-28 border-b border-gray-400 focus:outline-none bg-transparent"></p>
+                        <p class="font-bold">Classe : <input type="text" id="input-class" class="w-24 border-b border-gray-400 focus:outline-none bg-transparent">&nbsp;&nbsp;Nombre d'élèves : <input type="text" id="input-students-present" class="w-8 border-b border-gray-400 focus:outline-none text-center bg-transparent"> / <input type="text" id="input-students-total" class="w-8 border-b border-gray-400 focus:outline-none text-center bg-transparent"></p>
+                        <p class="font-bold">Leçon : <input type="text" id="input-subject" class="w-56 border-b border-gray-400 focus:outline-none bg-transparent"></p>
                     </td>
                 </tr>
             </table>
@@ -258,8 +227,8 @@
                         <button type="button" onclick="window.resetAutoScore()" id="score-auto-btn" class="hidden text-blue-600 underline"><i class="fas fa-rotate-left"></i> recalculer</button>
                     </div>
                 </div>
-                <div class="w-1/3 text-center"><p>Fait à : <input type="text" id="footer-place-inspector" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"> le : <input type="text" id="footer-date-inspector" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"></p><p class="font-bold mt-4">Signature de l'inspecteur (trice)</p></div>
-                <div class="w-1/3 text-right"><p>Lu et reçu copie conforme</p><p>Fait à : <input type="text" id="footer-place-teacher" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"> le : <input type="text" id="footer-date-teacher" class="w-24 text-center border-b border-black focus:outline-none bg-transparent" value="................................"></p><p class="font-bold mt-4">Signature de l'enseignant(e)</p></div>
+                <div class="w-1/3 text-center"><p>Fait à : <input type="text" id="footer-place-inspector" class="w-32 text-center border-b border-black focus:outline-none bg-transparent" value=""></p><p class="mt-1">le : <input type="text" id="footer-date-inspector" class="w-36 text-center focus:outline-none bg-transparent" value="     /     /       "></p><p class="font-bold mt-5">Signature de l'inspecteur (trice)</p></div>
+                <div class="w-1/3 text-right"><p>Lu et reçu copie conforme</p><p>Fait à : <input type="text" id="footer-place-teacher" class="w-32 text-center border-b border-black focus:outline-none bg-transparent" value=""></p><p class="mt-1">le : <input type="text" id="footer-date-teacher" class="w-36 text-center focus:outline-none bg-transparent" value="     /     /       "></p><p class="font-bold mt-5">Signature de l'enseignant(e)</p></div>
             </div>
 
             <!-- BOUTONS ACTION -->
@@ -933,7 +902,8 @@ Données :\n${ctx}`;
                 if(!el) return;
                 if(id === 'input-year') el.value = '2025/2026';
                 else if(id === 'input-civility' || id === 'input-nature') el.selectedIndex = 0;
-                else if(id.startsWith('footer-')) el.value = '................................';
+                else if(id.startsWith('footer-place-')) el.value = '';
+                else if(id.startsWith('footer-date-')) el.value = '      /      /        ';
                 else el.value = '';
             });
             document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
@@ -1248,42 +1218,40 @@ Données :\n${ctx}`;
             const table = (rows, opts={}) => new D.Table({ rows, width: fullW, alignment: D.AlignmentType.CENTER,
                 borders: opts.noBorder ? noBorder : undefined, columnWidths: opts.columnWidths });
 
-            // En-tête
+            // En-tête (gauche : République ; droite : Année scolaire / Commissariat)
             const header = table([ new D.TableRow({ children: [
-                cell([ pt("Année scolaire : "+val('input-year'), true, D.AlignmentType.CENTER),
-                       pt("Commissariat Régional de l'Enseignement", true, D.AlignmentType.CENTER),
-                       pt(val('input-region'), true, D.AlignmentType.CENTER) ]),
-                cell([ pt("RÉPUBLIQUE TUNISIENNE", true, D.AlignmentType.CENTER),
-                       pt("Ministère de l'Éducation", true, D.AlignmentType.CENTER),
-                       pt("Inspection Générale de la Pédagogie de l'Éducation", true, D.AlignmentType.CENTER) ])
+                cell([ pt("République Tunisienne", true, D.AlignmentType.LEFT),
+                       pt("Ministère de l'Éducation", true, D.AlignmentType.LEFT),
+                       pt("Inspection Générale de la Pédagogie de l'Éducation", true, D.AlignmentType.LEFT) ], {width:{size:55,type:D.WidthType.PERCENTAGE}}),
+                cell([ pt("Année scolaire : "+val('input-year'), true, D.AlignmentType.LEFT),
+                       pt("", false, D.AlignmentType.LEFT),
+                       pt("Commissariat Régional de l'Enseignement "+val('input-region'), true, D.AlignmentType.LEFT) ], {width:{size:45,type:D.WidthType.PERCENTAGE}})
             ]})], { noBorder:true });
 
+            // Titre encadré + inspecteur / discipline (2 cellules côte à côte)
             const title = table([ new D.TableRow({ children: [
-                cell([ pt("RAPPORT D'ÉVALUATION", true, D.AlignmentType.CENTER), pt("du travail de l'enseignant", false, D.AlignmentType.CENTER) ]) ]})]);
+                cell([ pt("Rapport d'évaluation", true, D.AlignmentType.CENTER),
+                       pt("du travail de l'enseignant", true, D.AlignmentType.CENTER) ], {width:{size:58,type:D.WidthType.PERCENTAGE}}),
+                cell([ p([run("L'inspecteur : ", true), run(val('input-inspector'))]),
+                       p([run("Discipline : ", true), run("Gestion")]) ], {width:{size:42,type:D.WidthType.PERCENTAGE}})
+            ]})]);
+
+            // Nature de la visite (centré, hors cadre)
+            const natureP = p([run("Nature de la visite : ", true), run(val('input-nature'))], D.AlignmentType.CENTER);
 
             const civ = val('input-civility');
-            // Identification
-            const idt = table([
-                new D.TableRow({ children: [
-                    cell([ p([run("Nom et prénom de l'enseignant(e) : ", true), run(civ+" "+val('input-teacher'), true)]) ], {width:{size:50,type:D.WidthType.PERCENTAGE}}),
-                    cell([ p([run("Grade actuel : ", true), run(val('input-grade'))]) ], {width:{size:50,type:D.WidthType.PERCENTAGE}})
-                ]}),
-                new D.TableRow({ children: [
-                    cell([ p([run("Établissement : ", true), run(val('input-establishment'))]) ]),
-                    cell([ p([run("Date de recrutement : ", true), run(val('input-recrutement')||"—")]),
-                           p([run("Date de la dernière visite : ", true), run(val('input-last-visit')||"—")]) ])
-                ]})
-            ]);
-
             const eff = (val('input-students-present')||'—')+" / "+(val('input-students-total')||'—');
-            const visite = table([
-                new D.TableRow({ children: [
-                    cell([ p([run("Date de la visite : ", true), run(val('input-date'))]) ]),
-                    cell([ p([run("Classe : ", true), run(val('input-class'))]) ]),
-                    cell([ p([run("Nombre d'élèves : ", true), run(eff)]) ])
-                ]}),
-                new D.TableRow({ children: [ cell([ p([run("Leçon : ", true), run(val('input-subject'))]) ], {colSpan:3}) ]})
-            ]);
+            // Identification (enseignant | visite) en un seul tableau à 2 cellules
+            const idt = table([ new D.TableRow({ children: [
+                cell([ p([run("Nom et prénom de l'enseignant (e) : ", true), run((civ?civ+" ":"")+val('input-teacher'), true)]),
+                       p([run("Grade actuel : ", true), run(val('input-grade'))]),
+                       p([run("Établissement : ", true), run(val('input-establishment'))]),
+                       p([run("Date de recrutement : ", true), run(val('input-recrutement'))]),
+                       p([run("Date de la dernière visite : ", true), run(val('input-last-visit'))]) ], {width:{size:50,type:D.WidthType.PERCENTAGE}}),
+                cell([ p([run("Date de la visite : ", true), run(val('input-date'))]),
+                       p([run("Classe : ", true), run(val('input-class')), run("      Nombre d'élèves : ", true), run(eff)]),
+                       p([run("Leçon : ", true), run(val('input-subject'))]) ], {width:{size:50,type:D.WidthType.PERCENTAGE}})
+            ]})]);
 
             const descr = table([ new D.TableRow({ children: [
                 cell([ pt("Description du déroulement de la leçon", true), pt(val('desc-lesson')) ]) ]})]);
@@ -1327,10 +1295,7 @@ Données :\n${ctx}`;
                 styles: { default: { document: { run: { font: FONT, size: SZ } } } },
                 sections: [{
                     properties: { page: { margin: { top: 720, bottom: 720, left: 850, right: 850 } } },
-                    children: [ header, spacer(), title, spacer(),
-                        p([run("L'inspecteur(trice) : ", true), run(val('input-inspector')||"................................")]),
-                        p([run("Discipline : ", true), run("Gestion"), run("          Nature de la visite : ", true), run(val('input-nature'))]),
-                        spacer(), idt, spacer(), visite, spacer(), descr, spacer(), grid, spacer(), synth, spacer(), sig ]
+                    children: [ header, spacer(), title, natureP, spacer(), idt, spacer(), descr, spacer(), grid, spacer(), synth, spacer(), sig ]
                 }]
             });
 
