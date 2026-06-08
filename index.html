@@ -351,34 +351,34 @@
             { id: "org", cat: "Organisation du travail", rows: 4, items: [
                 {id:"org-1",label:"Préparation de la leçon"},
                 {id:"org-2",label:"Tenue du cahier de textes de la classe"},
-                {id:"org-3",label:"Gestion cahiers/outils élèves"},
+                {id:"org-3",label:"Gestion des cahiers et des outils des apprenants (cahiers, portfolios, dossiers)"},
                 {id:"org-4",label:"Réalisation du programme"}
             ]},
-            { id: "mai", cat: "Maitrise des connaissances et de la didactique", rows: 3, items: [
-                {id:"mai-1",label:"Maitrise langue enseignement"},
-                {id:"mai-2",label:"Maitrise connaissances/compétences"},
-                {id:"mai-3",label:"Maitrise didactique discipline"}
+            { id: "mai", cat: "Maitrise des connaissances et de la didactique de la discipline", rows: 3, items: [
+                {id:"mai-1",label:"Maitrise de la langue d'enseignement"},
+                {id:"mai-2",label:"Maitrise des connaissances et des compétences"},
+                {id:"mai-3",label:"Maitrise de la didactique de la discipline"}
             ]},
             { id: "ing", cat: "Ingénierie de l'apprentissage", rows: 4, items: [
-                {id:"ing-1",label:"Construction intégrative apprentissages"},
-                {id:"ing-2",label:"Mise en œuvre approches adéquates"},
+                {id:"ing-1",label:"Construction intégrative des apprentissages visant le développement des compétences de l'apprenant"},
+                {id:"ing-2",label:"Mise en œuvre d'approches pédagogiques adéquates"},
                 {id:"ing-3",label:"Scénarisation pédagogique"},
-                {id:"ing-4",label:"Utilisation outils/supports"}
+                {id:"ing-4",label:"Utilisation d'outils et de supports d'apprentissage"}
             ]},
             { id: "ges", cat: "Gestion de la classe", rows: 3, items: [
-                {id:"ges-1",label:"Aménagement espace apprentissage"},
-                {id:"ges-2",label:"Utilisation techniques animation"},
+                {id:"ges-1",label:"Aménagement de l'espace d'apprentissage"},
+                {id:"ges-2",label:"Utilisation de techniques d'animation adéquates"},
                 {id:"ges-3",label:"Communication"}
             ]},
             { id: "eva", cat: "Evaluation", rows: 3, items: [
-                {id:"eva-1",label:"Recours différents types évaluation"},
-                {id:"eva-2",label:"Mise en œuvre remédiation"},
-                {id:"eva-3",label:"Conformité épreuves contrôle"}
+                {id:"eva-1",label:"Recours à différents types d'évaluation"},
+                {id:"eva-2",label:"Mise en œuvre de dispositifs de remédiation et de consolidation"},
+                {id:"eva-3",label:"Conformité des épreuves du contrôle continu (consistance, objectifs, dates de réalisation, fréquence…)"}
             ]},
             { id: "pro", cat: "Parcours professionnel", rows: 3, items: [
-                {id:"pro-1",label:"Adhésion formation/autoformation"},
+                {id:"pro-1",label:"Adhésion à la formation et à l'autoformation"},
                 {id:"pro-2",label:"Initiative et innovation"},
-                {id:"pro-3",label:"Analyse réflexive pratiques"}
+                {id:"pro-3",label:"Analyse réflexive des pratiques"}
             ]}
         ];
 
@@ -855,9 +855,29 @@ Données :\n${ctx}`;
         }
 
         // ---------- SAUVEGARDE ----------
+        // Charge les rapports depuis le stockage local (secours quand le cloud est indisponible).
+        function loadLocalReports() {
+            let list = [];
+            try { list = JSON.parse(localStorage.getItem('inspection_reports') || '[]'); } catch(e) {}
+            currentReports = list.slice().reverse();
+            window.renderHistory(); window.renderStats();
+        }
+
+        // Enregistre un rapport en local (création ou mise à jour). Garantit qu'aucune donnée n'est perdue.
+        function saveReportLocally(d, editingId) {
+            let list = [];
+            try { list = JSON.parse(localStorage.getItem('inspection_reports') || '[]'); } catch(e) {}
+            const local = { ...d, timestamp: Date.now() };
+            const i = editingId ? list.findIndex(x => x.id === editingId) : -1;
+            if(i >= 0) list[i] = { ...list[i], ...local };
+            else list.push({ id: (editingId && String(editingId).startsWith('local_')) ? editingId : 'local_' + Date.now(), ...local });
+            localStorage.setItem('inspection_reports', JSON.stringify(list));
+            currentReports = list.slice().reverse();
+            window.renderHistory(); window.renderStats();
+        }
+
         window.handleSave = async function() {
             if(!validateForm()) return;
-            if(!currentUser && !isLocalMode) { notify("Connexion requise.", "error"); return; }
 
             const btn = document.getElementById('btn-save');
             const old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true;
@@ -874,27 +894,28 @@ Données :\n${ctx}`;
             };
 
             try {
-                if(isLocalMode) {
-                    const list = JSON.parse(localStorage.getItem('inspection_reports') || '[]');
-                    if(currentEditingId) {
-                        const i = list.findIndex(x => x.id === currentEditingId);
-                        if(i >= 0) list[i] = { ...list[i], ...d, timestamp: Date.now() };
-                    } else {
-                        list.push({ id: 'local_' + Date.now(), ...d, timestamp: Date.now() });
-                    }
-                    localStorage.setItem('inspection_reports', JSON.stringify(list));
-                    currentReports = list.slice().reverse();
-                    window.renderHistory(); window.renderStats();
+                if(isLocalMode || !currentUser) {
+                    // Pas de cloud disponible -> enregistrement local.
+                    saveReportLocally(d, currentEditingId);
                     notify(currentEditingId ? "Rapport mis à jour (local)." : "Rapport enregistré (local).", "success");
                     currentEditingId = null;
                 } else {
-                    const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections');
-                    if(currentEditingId) {
-                        await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections', currentEditingId), d);
-                        notify("Rapport mis à jour.", "success"); currentEditingId = null;
-                    } else {
-                        await addDoc(colRef, d);
-                        notify("Rapport enregistré.", "success");
+                    // Tentative cloud, avec repli local si l'écriture échoue (règles Firestore, hors-ligne…).
+                    try {
+                        const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections');
+                        if(currentEditingId && !String(currentEditingId).startsWith('local_')) {
+                            await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections', currentEditingId), d);
+                            notify("Rapport mis à jour.", "success");
+                        } else {
+                            await addDoc(colRef, d);
+                            notify("Rapport enregistré.", "success");
+                        }
+                        currentEditingId = null;
+                    } catch(cloudErr) {
+                        console.error("Échec d'enregistrement cloud, repli local :", cloudErr);
+                        saveReportLocally(d, currentEditingId);
+                        notify("Cloud indisponible — rapport enregistré en local (rien n'est perdu).", "warn", 6000);
+                        currentEditingId = null;
                     }
                 }
                 clearDraft();
@@ -939,7 +960,11 @@ Données :\n${ctx}`;
                 currentReports = reports;
                 window.renderHistory();
                 window.renderStats();
-            }, (e) => { console.error("Snapshot error:", e); notify("Erreur de synchronisation.", "error"); });
+            }, (e) => {
+                console.error("Snapshot error:", e);
+                notify("Synchronisation cloud indisponible — affichage des rapports locaux.", "warn", 5000);
+                loadLocalReports();
+            });
         }
 
         window.renderStats = function() {
@@ -987,7 +1012,7 @@ Données :\n${ctx}`;
         window.editEntry = async function(id) {
             try {
                 let d;
-                if(isLocalMode) {
+                if(isLocalMode || String(id).startsWith('local_')) {
                     d = currentReports.find(x => x.id === id);
                 } else {
                     if(!currentUser) return;
@@ -1022,7 +1047,7 @@ Données :\n${ctx}`;
         window.deleteEntry = async function(id) {
             if(!confirm("Supprimer ce rapport ?")) return;
             try {
-                if(isLocalMode) {
+                if(isLocalMode || String(id).startsWith('local_')) {
                     const list = JSON.parse(localStorage.getItem('inspection_reports') || '[]').filter(x => x.id !== id);
                     localStorage.setItem('inspection_reports', JSON.stringify(list));
                     currentReports = list.slice().reverse();
@@ -1209,16 +1234,6 @@ Données :\n${ctx}`;
             const D = docx;
             const val = id => (data.fields?.[id] || '');
 
-            // Labels lisibles pour la grille Word
-            const labels = {
-                'org-1':"Préparation de la leçon",'org-2':"Tenue du cahier de textes de la classe",'org-3':"Gestion cahiers / outils élèves",'org-4':"Réalisation du programme",
-                'mai-1':"Maîtrise langue d'enseignement",'mai-2':"Maîtrise connaissances / compétences",'mai-3':"Maîtrise didactique de la discipline",
-                'ing-1':"Construction intégrative des apprentissages",'ing-2':"Mise en œuvre d'approches adéquates",'ing-3':"Scénarisation pédagogique",'ing-4':"Utilisation outils / supports",
-                'ges-1':"Aménagement espace d'apprentissage",'ges-2':"Utilisation techniques d'animation",'ges-3':"Communication",
-                'eva-1':"Recours à différents types d'évaluation",'eva-2':"Mise en œuvre de la remédiation",'eva-3':"Conformité des épreuves de contrôle",
-                'pro-1':"Adhésion formation / autoformation",'pro-2':"Initiative et innovation",'pro-3':"Analyse réflexive des pratiques"
-            };
-
             const FONT = "Times New Roman", SZ = 20; // demi-points => 10pt
             const BLACK = { style: D.BorderStyle.SINGLE, size: 6, color: "000000" };
             const noBorder = { top:{style:D.BorderStyle.NONE}, bottom:{style:D.BorderStyle.NONE}, left:{style:D.BorderStyle.NONE}, right:{style:D.BorderStyle.NONE} };
@@ -1284,7 +1299,7 @@ Données :\n${ctx}`;
                     const children = [];
                     if(i === 0) children.push(cell([ pt(catObj.cat, true) ], { vMerge: D.VerticalMergeType.RESTART }));
                     else children.push(cell([ p([]) ], { vMerge: D.VerticalMergeType.CONTINUE }));
-                    children.push(cell([ pt(labels[item.id] || item.label) ]));
+                    children.push(cell([ pt(item.label) ]));
                     if(i === 0) children.push(cell([ pt(data.observations['cat_'+idx] || '') ], { vMerge: D.VerticalMergeType.RESTART }));
                     else children.push(cell([ p([]) ], { vMerge: D.VerticalMergeType.CONTINUE }));
                     gridRows.push(new D.TableRow({ children }));
