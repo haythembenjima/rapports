@@ -510,47 +510,47 @@
 
         // --- DICTIONNAIRE JARGON OFFICIEL ET ENRICHI ---
         const commentsDB = {
-            'org-1': { 0:"l'absence totale de traces écrites de préparation", 1:"une préparation limitée à la simple résolution des exercices", 2:"des fiches pédagogiques manquant de précision", 3:"une préparation du cours acceptable et méthodique", 4:"une préparation soignée et des objectifs clairement définis", 5:"une planification pédagogique rigoureuse" },
-            'org-2': { 0:"un cahier de textes non présenté", 1:"un cahier de textes qui n'est pas à jour", 2:"un remplissage irrégulier du cahier nécessitant plus de rigueur", 3:"une tenue régulière du cahier de textes", 4:"un cahier de textes bien tenu", 5:"une tenue exemplaire du cahier" },
-            'org-3': { 0:"aucune trace de correction sur les cahiers des élèves", 1:"un contrôle très rare et superficiel des cahiers", 2:"un suivi irrégulier des cahiers", 3:"un suivi régulier des travaux des apprenants", 4:"un contrôle sérieux et attentif", 5:"un suivi rigoureux et systématique" },
-            'org-4': { 0:"un retard critique compromettant l'achèvement du programme", 1:"une progression très lente", 2:"un retard constaté nécessitant un réajustement", 3:"une progression normale", 4:"une bonne gestion du temps didactique", 5:"une réalisation optimale du programme" },
-            'mai-1': { 0:"une langue d'enseignement inadaptée", 1:"un débit d'expression très rapide et des erreurs linguistiques", 2:"des phrases parfois incorrectement construites", 3:"une maîtrise satisfaisante de la langue", 4:"une évolution en classe avec beaucoup d'aisance", 5:"une élocution impeccable" },
-            'mai-2': { 0:"des erreurs scientifiques lourdes", 1:"des erreurs scientifiques d'inattention", 2:"une exactitude scientifique qui nécessite plus de rigueur", 3:"une maîtrise acceptable des contenus", 4:"une maîtrise solide des concepts", 5:"une expertise scientifique indéniable" },
+            'org-1': { 0:"l'absence totale de traces écrites de préparation", 1:"une préparation limitée à la simple résolution des exercices", 2:["des fiches pédagogiques manquant de précision","une préparation de la séance insuffisante","l'absence des fiches pédagogiques lors de la séance"], 3:["une préparation du cours acceptable et méthodique","une préparation des cours acceptable"], 4:"une préparation soignée et des objectifs clairement définis", 5:"une planification pédagogique rigoureuse" },
+            'org-2': { 0:"un cahier de textes non présenté", 1:"un cahier de textes qui n'est pas à jour", 2:"un remplissage irrégulier du cahier nécessitant plus de rigueur", 3:["une tenue régulière du cahier de textes","une tenue du cahier de textes à jour mais dont la présentation est à améliorer"], 4:"un cahier de textes bien tenu", 5:"une tenue exemplaire du cahier" },
+            'org-3': { 0:"aucune trace de correction sur les cahiers des élèves", 1:["un contrôle très rare et superficiel des cahiers","des cahiers d'élèves non contrôlés"], 2:"un suivi irrégulier des cahiers", 3:["un suivi régulier des travaux des apprenants","des cahiers d'élèves à contrôler davantage"], 4:"un contrôle sérieux et attentif", 5:"un suivi rigoureux et systématique" },
+            'org-4': { 0:"un retard critique compromettant l'achèvement du programme", 1:"une progression très lente", 2:["un retard constaté nécessitant un réajustement","un retard constaté dans la progression du programme"], 3:"une progression normale", 4:["une bonne gestion du temps didactique","une évolution des cours conforme aux programmes officiels et à la charge horaire"], 5:"une réalisation optimale du programme" },
+            'mai-1': { 0:"une langue d'enseignement inadaptée", 1:"un débit d'expression très rapide et des erreurs linguistiques", 2:"des phrases parfois incorrectement construites", 3:["une maîtrise satisfaisante de la langue","une maîtrise acceptable de la langue d'enseignement"], 4:["une évolution en classe avec beaucoup d'aisance","une bonne maîtrise de la langue d'enseignement"], 5:"une élocution impeccable" },
+            'mai-2': { 0:"des erreurs scientifiques lourdes", 1:"des erreurs scientifiques d'inattention", 2:"une exactitude scientifique qui nécessite plus de rigueur", 3:["une maîtrise acceptable des contenus","des connaissances conformes au programme officiel"], 4:["une maîtrise solide des concepts","des connaissances exactes et adaptées au niveau des élèves"], 5:"une expertise scientifique indéniable" },
             'mai-3': { 0:"une absence de transposition didactique", 1:"une approche didactique peu adaptée au niveau des élèves", 2:"un effort de didactisation qui reste perfectible", 3:"une démarche didactique adéquate", 4:"une illustration des concepts par des exemples pertinents", 5:"une excellente maîtrise didactique" },
-            'ing-1': { 0:"une démarche purement transmissive et une monopolisation de la parole", 1:"un manque d'implication des élèves", 2:"une démarche reposant en grande partie sur la transmission", 3:"une bonne volonté à développer les savoirs", 4:"un travail guidé réalisé avec le concours des élèves", 5:"une ingénierie remarquable centrant l'apprentissage sur l'élève" },
+            'ing-1': { 0:"une démarche purement transmissive et une monopolisation de la parole", 1:"un manque d'implication des élèves", 2:["une démarche reposant en grande partie sur la transmission","une démarche reposant sur la participation collective au détriment de l'autonomie des élèves"], 3:"une bonne volonté à développer les savoirs", 4:["un travail guidé réalisé avec le concours des élèves","l'adoption d'une méthode active fondée sur le dialogue avec les apprenants"], 5:"une ingénierie remarquable centrant l'apprentissage sur l'élève" },
             'ing-2': { 0:"des méthodes inadaptées aux objectifs", 1:"le recours fréquent à la dictée sans explications", 2:"un choix méthodologique manquant de variété", 3:"une utilisation correcte des méthodes actives", 4:"une diversification efficace des approches", 5:"l'application d'une démarche inductive" },
             'ing-3': { 0:"une absence de fil conducteur logique", 1:"un rythme accéléré relevant de l'agitation", 2:"des explications longues et ennuyeuses", 3:"un scénario pédagogique cohérent", 4:"un travail bien articulé", 5:"une scénarisation captivante" },
-            'ing-4': { 0:"une absence d'utilisation de supports", 1:"un usage excessif des documents polycopiés", 2:"un tableau qui n'est pas exploité convenablement", 3:"des supports variés et pertinents", 4:"une bonne intégration didactique", 5:"une schématisation claire et expressive au tableau" },
+            'ing-4': { 0:"une absence d'utilisation de supports", 1:"un usage excessif des documents polycopiés", 2:["un tableau qui n'est pas exploité convenablement","une exploitation insatisfaisante du tableau (absence de plan et d'espace réservé aux calculs)"], 3:["des supports variés et pertinents","une exploitation satisfaisante du tableau"], 4:"une bonne intégration didactique", 5:"une schématisation claire et expressive au tableau" },
             'ges-1': { 0:"un espace classe désorganisé", 1:"une disposition peu propice aux échanges", 2:"une organisation spatiale classique", 3:"une gestion correcte de l'espace", 4:"un aménagement favorisant l'interaction", 5:"une optimisation de l'espace" },
-            'ges-2': { 0:"une classe complètement effacée", 1:"une participation très timide", 2:"des techniques d'animation à revoir", 3:"une classe vivante", 4:"des techniques d'animation remarquables", 5:"une dynamique de groupe excellente" },
-            'ges-3': { 0:"un climat tendu", 1:"une communication à sens unique", 2:"une relation correcte mais parfois distante", 3:"de bons rapports avec les élèves", 4:"une gestion bienveillante", 5:"une personnalité très influente positivement" },
-            'eva-1': { 0:"une absence totale d'évaluation", 1:"l'utilisation de questions fermées favorisant la mémorisation", 2:"une focalisation excessive sur l'aspect technique", 3:"un usage correct des évaluations", 4:"une conception satisfaisante des sujets", 5:"un dispositif complet d'évaluation" },
+            'ges-2': { 0:"une classe complètement effacée", 1:"une participation très timide", 2:"des techniques d'animation à revoir", 3:["une classe vivante","des techniques d'animation satisfaisantes mais à améliorer"], 4:"des techniques d'animation remarquables", 5:"une dynamique de groupe excellente" },
+            'ges-3': { 0:"un climat tendu", 1:"une communication à sens unique", 2:"une relation correcte mais parfois distante", 3:["de bons rapports avec les élèves","une gestion de la classe satisfaisante"], 4:"une gestion bienveillante", 5:"une personnalité très influente positivement" },
+            'eva-1': { 0:"une absence totale d'évaluation", 1:"l'utilisation de questions fermées favorisant la mémorisation", 2:["une focalisation excessive sur l'aspect technique","une importance insuffisante accordée à l'évaluation diagnostique"], 3:"un usage correct des évaluations", 4:["une conception satisfaisante des sujets","des devoirs bien présentés et conformes au programme officiel"], 5:"un dispositif complet d'évaluation" },
             'eva-2': { 0:"aucune prise en compte des difficultés des élèves", 1:"l'absence d'un compte rendu détaillé", 2:"quelques tentatives de remédiation ponctuelles", 3:"des dispositifs de remédiation fonctionnels", 4:"une attention ciblée accordée aux élèves en difficulté", 5:"un traitement de l'erreur judicieusement exploité" },
             'eva-3': { 0:"des épreuves non conformes", 1:"des irrégularités de forme et de fond", 2:"un respect partiel des normes", 3:"des épreuves conformes", 4:"des évaluations bien construites", 5:"une qualité docimologique irréprochable" },
-            'pro-1': { 0:"un refus manifeste de formation", 1:"un faible intérêt pour le développement professionnel", 2:"une participation passive aux journées de formation", 3:"une assiduité régulière aux sessions de formation", 4:"un investissement sérieux avec un impact positif", 5:"une démarche très active d'autoformation" },
+            'pro-1': { 0:"un refus manifeste de formation", 1:"un faible intérêt pour le développement professionnel", 2:"une participation passive aux journées de formation", 3:["une assiduité régulière aux sessions de formation","une assistance aux séances de formation à mieux exploiter"], 4:["un investissement sérieux avec un impact positif","une assiduité régulière aux sessions de formation et un travail accompli avec soin"], 5:"une démarche très active d'autoformation" },
             'pro-2': { 0:"aucune initiative", 1:"une routine installée", 2:"quelques efforts timides d'innovation", 3:"une participation active à la vie de l'établissement", 4:"une force de proposition indéniable", 5:"un profil innovant" },
-            'pro-3': { 0:"une incapacité à remettre en question ses pratiques", 1:"des difficultés à analyser objectivement ses réussites ou échecs", 2:"un début d'analyse réflexive à approfondir", 3:"une capacité d'auto-évaluation correcte", 4:"une ouverture remarquable aux conseils", 5:"une posture de praticien réflexif" }
+            'pro-3': { 0:"une incapacité à remettre en question ses pratiques", 1:"des difficultés à analyser objectivement ses réussites ou échecs", 2:"un début d'analyse réflexive à approfondir", 3:"une capacité d'auto-évaluation correcte", 4:["une ouverture remarquable aux conseils","une attitude d'écoute positive et une analyse réflexive très satisfaisante"], 5:"une posture de praticien réflexif" }
         };
 
         const recoDB = {
-            'org-1': "préparer rigoureusement les fiches pédagogiques",
-            'org-2': "formuler clairement les objectifs sur le cahier de textes",
-            'org-3': "contrôler davantage les cahiers des élèves",
-            'org-4': "veiller à l'exécution du programme sans retard",
+            'org-1': ["préparer rigoureusement les fiches pédagogiques","préparer ses séances (fiches, planning, synthèse…)","se munir de ses fiches pédagogiques lors de la séance"],
+            'org-2': ["formuler clairement les objectifs sur le cahier de textes","soigner la présentation du cahier de textes"],
+            'org-3': ["contrôler davantage les cahiers des élèves","contrôler et viser régulièrement les cahiers des élèves"],
+            'org-4': ["veiller à l'exécution du programme sans retard","rattraper le retard accusé dans la progression du programme"],
             'mai-1': "surveiller les expressions et éviter le métalangage",
-            'mai-2': "veiller à l'exactitude des connaissances dispensées",
+            'mai-2': ["veiller à l'exactitude des connaissances dispensées","bien préparer les exemples pour éviter toute confusion"],
             'mai-3': "faire émerger les représentations des élèves sans se contenter de donner la bonne réponse",
-            'ing-1': "laisser l'initiative aux élèves et ne pas anticiper les réponses",
-            'ing-2': "appliquer une démarche inductive (partir des exemples pour généraliser)",
-            'ing-3': "élaborer au préalable un plan de discussion cohérent",
-            'ing-4': "recourir à la schématisation des notions pour éviter les développements longs",
+            'ing-1': ["laisser l'initiative aux élèves et ne pas anticiper les réponses","accorder un temps de réflexion suffisant aux élèves avant de passer à la correction","céder la parole aux élèves pour s'exprimer et favoriser l'autonomie des apprenants","éviter la participation collective au profit du travail individuel"],
+            'ing-2': ["appliquer une démarche inductive (partir des exemples pour généraliser)","adopter une démarche pédagogique pertinente"],
+            'ing-3': ["élaborer au préalable un plan de discussion cohérent","faire une synthèse après chaque partie de la leçon"],
+            'ing-4': ["recourir à la schématisation des notions pour éviter les développements longs","exploiter judicieusement le tableau","faire un choix judicieux et traiter des activités riches et contextualisées","varier et enrichir les supports, les contextualiser et les adapter au niveau des élèves","exploiter les TIC pour gagner du temps et faciliter l'apprentissage"],
             'ges-1': "aménager l'espace classe pour favoriser les échanges",
-            'ges-2': "varier les techniques d'animation (jeu de rôles, etc.)",
-            'ges-3': "réduire la monopolisation de la parole",
-            'eva-1': "viser la consolidation à travers la correction des devoirs",
-            'eva-2': "prendre en considération l'hétérogénéité des élèves",
-            'eva-3': "se conformer aux recommandations officielles afférentes à la consistance des épreuves",
-            'pro-1': "tirer meilleur profit du contenu des séances de formation",
+            'ges-2': ["varier les techniques d'animation (jeu de rôles, etc.)","améliorer les techniques d'animation et impliquer davantage les élèves dans l'enrichissement de la leçon","favoriser les échanges inter-élèves","éviter la monopolisation de la parole et l'anticipation des réponses"],
+            'ges-3': ["réduire la monopolisation de la parole","gérer les échanges et les conflits socio-cognitifs"],
+            'eva-1': ["viser la consolidation à travers la correction des devoirs","accorder plus d'importance à l'évaluation diagnostique et exploiter l'évaluation formative"],
+            'eva-2': ["prendre en considération l'hétérogénéité des élèves","exploiter l'erreur dans le processus d'apprentissage"],
+            'eva-3': ["se conformer aux recommandations officielles afférentes à la consistance des épreuves","éviter le travail purement mécanique et la redondance des calculs et favoriser la prise de décisions"],
+            'pro-1': ["tirer meilleur profit du contenu des séances de formation"],
             'pro-2': "faire preuve de plus d'initiative pédagogique",
             'pro-3': "analyser d'une façon continue ses pratiques professionnelles"
         };
@@ -1481,12 +1481,26 @@ Données :\n${ctx}`;
                  });
              }
 
-             // 3. CONCLUSION
-             let conclusion = "";
-             if(score >= 16) conclusion = `Je lui exprime mes vifs encouragements pour la poursuite de cet excellent travail.`;
-             else if(score >= 13) conclusion = `${g.Pronoun} aime son métier et manifeste un intérêt pour ses élèves. Je l'encourage à persévérer.`;
-             else if(score >= 10) conclusion = `Certes, il lui reste des progrès à accomplir. Sa bonne volonté donnera d'ores et déjà à son enseignement une efficacité certaine.`;
-             else conclusion = `Des efforts considérables et une remise en question de sa pratique sont exigés pour pallier les dysfonctionnements relevés.`;
+             // 3. CONCLUSION (variantes accordées au genre, choisies au hasard)
+             const adj = (m, fem) => g.f ? fem : m;
+             let conclusionOptions;
+             if(score >= 16) conclusionOptions = [
+                 `Je lui exprime mes vifs encouragements pour la poursuite de cet excellent travail.`,
+                 `${g.Pronoun} est parfaitement capable d'intéresser les élèves à son cours et d'assurer avec enthousiasme un enseignement solide. Je lui exprime mes vifs encouragements.`
+             ];
+             else if(score >= 13) conclusionOptions = [
+                 `${g.Pronoun} aime son métier et manifeste un intérêt pour ses élèves. Je l'encourage à persévérer.`,
+                 `${adj('Dynamique et sérieux','Dynamique et sérieuse')}, ${g.pronoun} aime son métier et déploie des efforts louables. Je l'encourage à persévérer dans cette voie.`
+             ];
+             else if(score >= 10) conclusionOptions = [
+                 `Certes, il lui reste des progrès à accomplir. Sa bonne volonté donnera d'ores et déjà à son enseignement une efficacité certaine.`,
+                 `${adj('Compréhensif et sérieux','Compréhensive et sérieuse')}, ${fullName} pourra donner à son enseignement une efficacité certaine en mettant en application les recommandations qui lui sont prodiguées.`
+             ];
+             else conclusionOptions = [
+                 `Des efforts considérables et une remise en question de sa pratique sont exigés pour pallier les dysfonctionnements relevés.`,
+                 `En mettant en application les recommandations qui lui sont prodiguées, ${g.article} pourra progressivement donner à son enseignement une efficacité certaine.`
+             ];
+             let conclusion = pickVariant(conclusionOptions);
 
              text += `\n${conclusion}`;
 
