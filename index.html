@@ -122,10 +122,17 @@
         <p>Les données sont enregistrées uniquement sur cet appareil (navigateur).</p>
     </div>
 
-    <div class="max-w-[21cm] mx-auto p-8 bg-white shadow-lg mb-8 min-h-screen relative hidden" id="report-container">
+    <div class="max-w-[21cm] mx-auto p-8 bg-white shadow-lg mb-8 min-h-screen relative" id="report-container">
 
         <!-- VUE 1 : FORMULAIRE -->
         <div id="view-form">
+
+            <!-- BANNIÈRE BROUILLON (non bloquante) -->
+            <div id="draft-banner" class="no-print hidden mb-4 flex flex-wrap items-center gap-2 bg-amber-50 border border-amber-300 rounded-lg p-3 font-sans">
+                <span class="text-sm text-amber-900 font-bold"><i class="fas fa-clock-rotate-left"></i> Un brouillon non enregistré a été trouvé.</span>
+                <button type="button" onclick="window.restoreDraftNow()" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-xs font-bold shadow">Restaurer</button>
+                <button type="button" onclick="window.dismissDraft()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1 rounded text-xs font-bold">Ignorer</button>
+            </div>
 
             <!-- NOTES MANUSCRITES -> RAPPORT (IA en ligne / hors-ligne via la banque) -->
             <div class="no-print mb-5 bg-indigo-50 border border-indigo-200 rounded-lg p-3 font-sans">
@@ -458,34 +465,47 @@
             const aiCb = document.getElementById('ai-mode-online');
             if(aiCb){ aiCb.checked = navigator.onLine !== false; window.toggleAiMode && window.toggleAiMode(); }
 
+            // Le formulaire est utilisable IMMÉDIATEMENT (aucune dépendance à la connexion)
+            document.getElementById('app-nav').classList.remove('hidden');
+            document.getElementById('report-container').classList.remove('hidden');
+            maybeRestoreDraft();   // proposition non bloquante (bannière)
+
+            // Connexion Firebase en arrière-plan (n'empêche jamais la saisie)
+            let connected = false;
             try {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                     try { await signInWithCustomToken(auth, __initial_auth_token); }
-                     catch(e) { await signInAnonymously(auth); }
-                } else { await signInAnonymously(auth); }
-
                 onAuthStateChanged(auth, (user) => {
-                    currentUser = user;
                     if(user) {
+                        connected = true; isLocalMode = false; currentUser = user;
                         document.getElementById('status-indicator').innerHTML='<span class="text-green-600"><i class="fas fa-circle"></i> Connecté</span>';
-                        document.getElementById('app-nav').classList.remove('hidden');
-                        document.getElementById('report-container').classList.remove('hidden');
+                        document.getElementById('local-mode-alert').classList.add('hidden');
                         loadFirebaseStats();
-                        maybeRestoreDraft();
                     }
                 });
+
+                const signin = (typeof __initial_auth_token !== 'undefined' && __initial_auth_token)
+                    ? signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth))
+                    : signInAnonymously(auth);
+                signin.catch(() => enterLocalMode());
             } catch(e) {
-                isLocalMode = true;
-                document.getElementById('status-indicator').innerHTML='<span class="text-orange-500"><i class="fas fa-circle"></i> Local</span>';
-                document.getElementById('local-mode-alert').classList.remove('hidden');
-                document.getElementById('app-nav').classList.remove('hidden');
-                document.getElementById('report-container').classList.remove('hidden');
-                maybeRestoreDraft();
+                enterLocalMode();
             }
+
+            // Repli local si la connexion n'aboutit pas rapidement (hors-ligne, réseau bloqué…)
+            setTimeout(() => { if(!connected) enterLocalMode(); }, 3000);
+        }
+
+        function enterLocalMode() {
+            if(currentUser || isLocalMode) return;
+            isLocalMode = true;
+            const si = document.getElementById('status-indicator');
+            if(si) si.innerHTML = '<span class="text-orange-500"><i class="fas fa-circle"></i> Local</span>';
+            const lma = document.getElementById('local-mode-alert');
+            if(lma) lma.classList.remove('hidden');
+            loadLocalReports();
         }
 
         function buildGrid() {
@@ -873,6 +893,7 @@
             });
         }
 
+        let _pendingDraft = null;
         function maybeRestoreDraft() {
             // Ne pas interrompre / écraser si l'utilisateur a déjà commencé à remplir le formulaire
             if(formTouched) return;
@@ -884,14 +905,25 @@
             const hasContent = (draft.fields && (draft.fields['input-teacher'] || draft.fields['desc-lesson'])) ||
                                (draft.scores && Object.values(draft.scores).some(v => v !== null));
             if(!hasContent) return;
-            if(confirm("Un brouillon non enregistré a été trouvé. Voulez-vous le restaurer ?")) {
-                fillFormData(draft);
-                currentEditingId = draft.editingId || null;
-                notify("Brouillon restauré.", "info");
-            } else {
-                try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
-            }
+            // Proposition NON bloquante via une bannière (n'interrompt jamais la saisie de l'en-tête)
+            _pendingDraft = draft;
+            const banner = document.getElementById('draft-banner');
+            if(banner) banner.classList.remove('hidden');
         }
+        window.restoreDraftNow = function() {
+            if(_pendingDraft) {
+                fillFormData(_pendingDraft);
+                currentEditingId = _pendingDraft.editingId || null;
+                notify("Brouillon restauré.", "info");
+            }
+            const banner = document.getElementById('draft-banner'); if(banner) banner.classList.add('hidden');
+            _pendingDraft = null;
+        };
+        window.dismissDraft = function() {
+            clearDraft();
+            const banner = document.getElementById('draft-banner'); if(banner) banner.classList.add('hidden');
+            _pendingDraft = null;
+        };
         window.maybeRestoreDraft = maybeRestoreDraft;
 
         function clearDraft() {
