@@ -1,0 +1,8 @@
+{
+  "appId": "com.inspection.rapports",
+  "appName": "Rapport Inspection",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  }
+}
