@@ -91,4 +91,4 @@ jobs:
             hors-ligne via la banque), historique.
           files: Rapport-Inspection.apk
           draft: false
-          prerelease: false
+          prerelease: true
