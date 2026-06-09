@@ -94,23 +94,28 @@
             /* Champs fluides : ne dépassent jamais l'écran */
             #view-form input[type="text"], #view-form input[type="number"], #view-form select, #view-form textarea { max-width: 100% !important; }
 
-            /* Grille d'évaluation : seul le tableau défile ; la colonne Observations (écriture) est élargie */
-            #evalForm > table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            #evalForm > table > thead, #evalForm > table > tbody { display: table; width: 100%; min-width: 600px; }
-            #evalForm th { font-size: .72rem; padding: 4px !important; }
-            .grid-comp { width: 52px; min-width: 52px; font-size: .68rem; line-height: 1.05; padding: 3px !important; }
-            .grid-sub  { width: 94px;  min-width: 94px;  font-size: .70rem; line-height: 1.05; padding: 3px !important; }
-            .grid-obs  { width: auto; min-width: 300px; padding: 4px !important; }
-            .grid-obs textarea { min-height: 170px; font-size: .82rem; }
-            .no-print-scale { width: 112px; min-width: 112px; padding: 2px !important; }
-            #evalForm .radio-group { gap: 2px !important; }
-            #evalForm .scale-btn + label { width: 20px !important; height: 20px !important; font-size: .6rem !important; }
+            /* Grille : sur mobile on remplace le tableau par des CARTES empilées (sauf à l'impression/PDF) */
+            body:not(.render-print) #evalForm > table,
+            body:not(.render-print) #evalForm > .grid-legend { display: none; }
+            body:not(.render-print) #mobile-grid { display: block; }
             #view-form .text-2xl { font-size: 1.3rem; line-height: 1.2; }
 
             /* Boutons d'action flottants plus compacts */
             .fixed.bottom-4.right-4 { gap: .35rem; bottom: .5rem; right: .5rem; }
             .fixed.bottom-4.right-4 button { padding: 0.55rem 0.7rem; }
         }
+
+        /* Cartes mobiles (masquées par défaut ; affichées sur petit écran via la règle ci-dessus) */
+        #mobile-grid { display: none; }
+        #mobile-grid .mcard { border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; margin-bottom: 12px; background: #fff; }
+        #mobile-grid .mcard-cat { font-weight: 700; color: #1e3a8a; font-size: 1rem; border-bottom: 2px solid #bfdbfe; padding-bottom: 4px; margin-bottom: 8px; }
+        #mobile-grid .mcard-item { padding: 6px 0; border-bottom: 1px dashed #e5e7eb; }
+        #mobile-grid .mcard-sub { font-weight: 600; font-size: .9rem; margin-bottom: 5px; }
+        #mobile-grid .mcard-scale { display: flex; gap: 6px; flex-wrap: wrap; }
+        #mobile-grid .mscale { width: 34px; height: 34px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; font-weight: 700; font-size: .9rem; color: #475569; }
+        #mobile-grid .mscale-on { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+        #mobile-grid .mcard-obslabel { display: block; font-weight: 700; font-size: .85rem; margin-top: 10px; color: #334155; }
+        #mobile-grid .mcard-obs { width: 100%; min-height: 150px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; font-size: .92rem; font-family: inherit; }
     </style>
 </head>
 <body class="text-black">
@@ -265,7 +270,10 @@
                     </thead>
                     <tbody id="grille-body"></tbody>
                 </table>
-                <div class="text-xs mt-1 no-print-scale">*échelle de notation : 0 : néant -1 : insuffisant -2 : passable -3 : bien -4 : très bien -5 : excellent</div>
+                <div class="text-xs mt-1 no-print-scale grid-legend">*échelle de notation : 0 : néant -1 : insuffisant -2 : passable -3 : bien -4 : très bien -5 : excellent</div>
+
+                <!-- VUE MOBILE : cartes empilées (pilote les mêmes champs que le tableau ci-dessus) -->
+                <div id="mobile-grid" class="no-print font-sans"></div>
 
                 <!-- SYNTHESE -->
                 <div class="mt-4 border border-black p-2 relative group">
@@ -495,6 +503,7 @@
         async function initApp() {
             buildGrid();
             window.generateRadios();
+            buildMobileCards();
             currentAdminPassHash = await hashText(DEFAULT_PASS);
             attachAutoDraft();
             updateBankStatus();
@@ -565,6 +574,64 @@
             });
             tbody.innerHTML = html;
         }
+
+        // ---------- VUE MOBILE : cartes empilées (pilotent les champs du tableau) ----------
+        function buildMobileCards() {
+            const wrap = document.getElementById('mobile-grid');
+            if(!wrap) return;
+            let html = '';
+            gridData.forEach((cat, catIndex) => {
+                html += `<div class="mcard">`;
+                html += `<div class="mcard-cat">${cat.cat}</div>`;
+                cat.items.forEach(item => {
+                    html += `<div class="mcard-item"><div class="mcard-sub">${item.label}</div>`;
+                    html += `<div class="mcard-scale" data-id="${item.id}">`;
+                    for(let v=0; v<=5; v++) {
+                        html += `<button type="button" class="mscale" data-id="${item.id}" data-v="${v}" onclick="window.setMobileScore('${item.id}',${v})">${v}</button>`;
+                    }
+                    html += `</div></div>`;
+                });
+                html += `<label class="mcard-obslabel">Observations (arguments, propositions…)</label>`;
+                html += `<textarea class="mcard-obs" id="mobs-${catIndex}" data-cat="${catIndex}" oninput="window.syncMobileObs(${catIndex})" placeholder="Saisir ou générer les observations…"></textarea>`;
+                html += `</div>`;
+            });
+            wrap.innerHTML = html;
+            refreshMobileCards();
+        }
+
+        // Tap sur un bouton 0-5 : coche le vrai radio (déclenche génération + note) puis rafraîchit la carte
+        window.setMobileScore = function(id, v) {
+            const r = document.getElementById(`${id}-${v}`);
+            if(r) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+            refreshMobileCards();
+        };
+
+        // Saisie dans la zone d'écriture de la carte -> recopie dans le vrai champ du tableau
+        window.syncMobileObs = function(catIndex) {
+            const m = document.getElementById(`mobs-${catIndex}`);
+            const real = document.getElementById(`obs-cat-${catIndex}`);
+            if(m && real) { real.value = m.value; window.autoResize(real); window.saveDraft(); }
+        };
+
+        // Synchronise les cartes depuis l'état réel (radios + textareas) : appelé après remplissage/génération
+        function refreshMobileCards() {
+            const wrap = document.getElementById('mobile-grid');
+            if(!wrap || !wrap.innerHTML) return;
+            // textareas
+            gridData.forEach((cat, idx) => {
+                const m = document.getElementById(`mobs-${idx}`);
+                const real = document.getElementById(`obs-cat-${idx}`);
+                if(m && real && m.value !== real.value) m.value = real.value;
+            });
+            // boutons sélectionnés
+            wrap.querySelectorAll('.mscale').forEach(btn => {
+                const id = btn.getAttribute('data-id');
+                const v = btn.getAttribute('data-v');
+                const checked = document.getElementById(`${id}-${v}`)?.checked;
+                btn.classList.toggle('mscale-on', !!checked);
+            });
+        }
+        window.refreshMobileCards = refreshMobileCards;
 
         window.generateRadios = function() {
              gridData.forEach((cat, catIndex) => {
@@ -905,6 +972,7 @@
             // Restaure l'état de la note (auto vs manuelle)
             if(data.manualScore) { manualScore = false; window.onScoreManualEdit(); }
             else { window.resetAutoScore(); }
+            window.refreshMobileCards && window.refreshMobileCards();
         }
 
         let draftTimer = null;
@@ -1124,6 +1192,7 @@ Données :\n${ctx}`;
                 if(window.calculateScore) window.calculateScore();          // met à jour le compteur d'indicateurs
             }
             window.saveDraft();
+            window.refreshMobileCards && window.refreshMobileCards();
             return !!(data.description || obs.length || data.synthese);
         };
 
@@ -1278,6 +1347,7 @@ ${buildJargonGuide()}`;
             if(window.resetAutoScore) window.resetAutoScore(); else window.calculateScore();   // note /20 proposée (auto)
             window.generateAutoSynthesis();                                          // synthèse depuis la banque
             window.saveDraft();
+            window.refreshMobileCards && window.refreshMobileCards();
             notify("Rapport généré hors-ligne à partir de la banque (note /20 proposée). Relisez et ajustez.", "success", 7000);
         };
 
@@ -1400,6 +1470,7 @@ ${buildJargonGuide()}`;
             gridData.forEach((c, idx) => { const t = document.getElementById(`obs-cat-${idx}`); if(t) t.value=''; });
             currentEditingId = null;
             window.resetAutoScore();
+            window.refreshMobileCards && window.refreshMobileCards();
             clearDraft();
             notify("Nouveau rapport.", "info");
         };
