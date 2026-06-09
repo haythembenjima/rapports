@@ -31,11 +31,12 @@ Elle fonctionne de trois façons :
 - Reformulation IA de la description de la séance.
 - **Export PDF** et **export Word (.docx)**.
 - **Historique** des rapports (Firebase ou local), recherche, statistiques, export CSV.
+- **Export par lot** : un bouton « Tout » génère un **seul fichier Word** regroupant tous les rapports affichés (un par page).
 - **Import** d'un rapport au format `.json` (pour le retrouver dans l'historique).
 - **Banque de phrases éditable** : le langage des *observations* et des *recommandations* est exportable/importable en JSON ; plusieurs variantes par niveau (0–5) sont tirées au hasard pour éviter les répétitions (onglet Historique → *Banque de phrases*).
 - **Notes manuscrites → rapport** : **Prendre une photo** (mobile) ou **charger des images** des prises de notes de la visite.
   - **En ligne** : l'IA multimodale (Gemini) lit les images et pré-remplit description, observations par compétence, **note /20 proposée** et synthèse.
-  - **Hors ligne** : reconnaissance du texte sur l'appareil (OCR), puis génération **à partir de la banque de jargon** (observations, **note /20 estimée**, synthèse) — fonctionne aussi sur du texte saisi/corrigé à la main.
+  - **Hors ligne** : reconnaissance du texte sur l'appareil (OCR), puis génération **à partir de la banque de jargon** (observations, **note /20 estimée**, synthèse) — fonctionne aussi sur du texte saisi/corrigé à la main. Dans l'**installateur Windows**, le moteur OCR (Tesseract + données françaises) est **embarqué** → reconnaissance **100 % hors-ligne** dès l'installation. *(En version navigateur, l'OCR se télécharge une fois depuis le CDN puis est mis en cache.)*
 
 ## Construire l'application Windows (.exe)
 
