@@ -709,13 +709,15 @@
                 } else if (positives.length >= negatives.length) {
                     sentence = `Bien que l'on observe ${joinWithCommas(positives)}, on relève cependant ${joinWithCommas(negatives)}.`;
                 } else {
-                    sentence = `Malgré ${joinWithCommas(positives)}, la prestation souffre malheureusement de ${joinWithCommas(negatives)}.`;
+                    const negJoined = joinWithCommas(negatives);
+                    const deLiaison = /^[aàâäeéèêëiîïoôöuùûühyœæ]/i.test(negJoined) ? "d'" : "de ";
+                    sentence = `Malgré ${joinWithCommas(positives)}, la prestation souffre malheureusement ${deLiaison}${negJoined}.`;
                 }
 
                 const parts = [ sentence.charAt(0).toUpperCase() + sentence.slice(1) ];
 
-                // Les 4 premières compétences : on ajoute propositions + appréciation générale (comme dans les fiches)
-                if (catIndex < 4) {
+                // Toutes les compétences : on ajoute propositions + appréciation générale (comme dans les fiches)
+                {
                     const g = genderTokens();
                     // 2) PROPOSITIONS : recommandations pour les composantes à améliorer (note <= 3)
                     let recs = itemsData.filter(i => i.score <= 3).map(i => recoPhrase(i.id)).filter(Boolean);
@@ -752,7 +754,9 @@
                 org: "Globalement, l'organisation du travail est",
                 mai: "Dans l'ensemble, la maîtrise des connaissances et de la didactique de la discipline est",
                 ing: "D'une façon générale, l'ingénierie de l'apprentissage est",
-                ges: "Globalement, la gestion de la classe est"
+                ges: "Globalement, la gestion de la classe est",
+                eva: "Globalement, l'évaluation est",
+                pro: "Sur le plan professionnel, l'implication est"
             };
             return `${lead[catId] || "Globalement, cette compétence est"} ${q}.`;
         }
