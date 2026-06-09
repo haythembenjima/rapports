@@ -94,9 +94,17 @@
             /* Champs fluides : ne dépassent jamais l'écran */
             #view-form input[type="text"], #view-form input[type="number"], #view-form select, #view-form textarea { max-width: 100% !important; }
 
-            /* Grille d'évaluation : seul le tableau défile horizontalement (la synthèse reste pleine largeur) */
+            /* Grille d'évaluation : seul le tableau défile ; la colonne Observations (écriture) est élargie */
             #evalForm > table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            #evalForm > table > thead, #evalForm > table > tbody { display: table; width: 100%; min-width: 560px; }
+            #evalForm > table > thead, #evalForm > table > tbody { display: table; width: 100%; min-width: 600px; }
+            #evalForm th { font-size: .72rem; padding: 4px !important; }
+            .grid-comp { width: 52px; min-width: 52px; font-size: .68rem; line-height: 1.05; padding: 3px !important; }
+            .grid-sub  { width: 94px;  min-width: 94px;  font-size: .70rem; line-height: 1.05; padding: 3px !important; }
+            .grid-obs  { width: auto; min-width: 300px; padding: 4px !important; }
+            .grid-obs textarea { min-height: 170px; font-size: .82rem; }
+            .no-print-scale { width: 112px; min-width: 112px; padding: 2px !important; }
+            #evalForm .radio-group { gap: 2px !important; }
+            #evalForm .scale-btn + label { width: 20px !important; height: 20px !important; font-size: .6rem !important; }
             #view-form .text-2xl { font-size: 1.3rem; line-height: 1.2; }
 
             /* Boutons d'action flottants plus compacts */
@@ -544,13 +552,13 @@
                 cat.items.forEach((item, i) => {
                     html += `<tr>`;
                     if(i === 0) {
-                        html += `<td rowspan="${cat.rows}" class="border border-black p-2 font-bold align-top">${cat.cat}</td>`;
-                        html += `<td class="border border-black p-2">${item.label}</td>`;
-                        html += `<td rowspan="${cat.rows}" class="border border-black p-2 relative group align-top">
+                        html += `<td rowspan="${cat.rows}" class="border border-black p-2 font-bold align-top grid-comp">${cat.cat}</td>`;
+                        html += `<td class="border border-black p-2 grid-sub">${item.label}</td>`;
+                        html += `<td rowspan="${cat.rows}" class="border border-black p-2 relative group align-top grid-obs">
                             <textarea id="obs-cat-${catIndex}" class="w-full bg-transparent resize-none overflow-hidden h-full min-h-[80px] text-justify" oninput="window.autoResize(this)"></textarea>
                         </td>`;
                     } else {
-                        html += `<td class="border border-black p-2">${item.label}</td>`;
+                        html += `<td class="border border-black p-2 grid-sub">${item.label}</td>`;
                     }
                     html += `<td class="border border-black p-1 text-center no-print-scale" id="row-${item.id}"></td></tr>`;
                 });
