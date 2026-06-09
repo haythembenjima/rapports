@@ -1,6 +1,8 @@
 node_modules/
 dist/
 ocr/
+www/
+android/
 package-lock.json
 *.log
 .DS_Store
