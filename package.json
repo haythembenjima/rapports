@@ -12,11 +12,12 @@
     "dist:portable": "electron-builder --win portable --publish never"
   },
   "devDependencies": {
-    "electron": "^31.7.6",
-    "electron-builder": "^24.13.3",
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.1.2",
     "@capacitor/core": "^6.1.2",
-    "@capacitor/android": "^6.1.2"
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
   },
   "build": {
     "appId": "com.inspection.rapports",

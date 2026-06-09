@@ -74,6 +74,22 @@
             .page-break { page-break-before: always; }
             table { border-collapse: collapse; }
         }
+
+        /* ---------- AFFICHAGE MOBILE (écran, n'affecte pas l'impression/PDF) ---------- */
+        @media screen and (max-width: 640px) {
+            #report-container { padding: 0.75rem !important; }
+            #app-nav { padding-left: .5rem; padding-right: .5rem; }
+            /* En-tête et pied de page : empiler les colonnes au lieu de les serrer */
+            #view-form > .flex.justify-between { flex-wrap: wrap; gap: .5rem; }
+            #view-form > .flex.justify-between > div { width: 100%; }
+            /* Tableaux larges (grille d'évaluation) : défilement horizontal au doigt */
+            #evalForm > table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            #evalForm > table thead, #evalForm > table tbody { display: table; width: 100%; min-width: 520px; }
+            /* Titre un peu plus compact */
+            #view-form .text-2xl { font-size: 1.25rem; }
+            /* Boutons d'action flottants : un peu plus petits */
+            .fixed.bottom-4.right-4 button { padding: 0.6rem 0.8rem; }
+        }
     </style>
 </head>
 <body class="text-black">
