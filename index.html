@@ -77,18 +77,31 @@
 
         /* ---------- AFFICHAGE MOBILE (écran, n'affecte pas l'impression/PDF) ---------- */
         @media screen and (max-width: 640px) {
-            #report-container { padding: 0.75rem !important; }
+            html, body { overflow-x: hidden; }
+            #report-container { padding: 0.6rem !important; max-width: 100% !important; }
             #app-nav { padding-left: .5rem; padding-right: .5rem; }
-            /* En-tête et pied de page : empiler les colonnes au lieu de les serrer */
-            #view-form > .flex.justify-between { flex-wrap: wrap; gap: .5rem; }
-            #view-form > .flex.justify-between > div { width: 100%; }
-            /* Tableaux larges (grille d'évaluation) : défilement horizontal au doigt */
+            #app-nav button, #app-nav .text-xs { font-size: .8rem; }
+
+            /* En-tête et pied de page : empiler les colonnes */
+            #view-form > .flex.justify-between { flex-wrap: wrap; gap: .4rem; }
+            #view-form > .flex.justify-between > div { width: 100% !important; text-align: left !important; }
+
+            /* Tableaux d'info (titre, identification) : 1 colonne empilée */
+            .resp-table, .resp-table tbody, .resp-table tr, .resp-table td { display: block !important; width: 100% !important; }
+            .resp-table td { border-left: none !important; border-right: none !important; border-top: none !important; border-bottom: 1px solid #000 !important; }
+            .resp-table tr td:last-child { border-bottom: none !important; }
+
+            /* Champs fluides : ne dépassent jamais l'écran */
+            #view-form input[type="text"], #view-form input[type="number"], #view-form select, #view-form textarea { max-width: 100% !important; }
+
+            /* Grille d'évaluation : seul le tableau défile horizontalement (la synthèse reste pleine largeur) */
             #evalForm > table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            #evalForm > table thead, #evalForm > table tbody { display: table; width: 100%; min-width: 520px; }
-            /* Titre un peu plus compact */
-            #view-form .text-2xl { font-size: 1.25rem; }
-            /* Boutons d'action flottants : un peu plus petits */
-            .fixed.bottom-4.right-4 button { padding: 0.6rem 0.8rem; }
+            #evalForm > table > thead, #evalForm > table > tbody { display: table; width: 100%; min-width: 560px; }
+            #view-form .text-2xl { font-size: 1.3rem; line-height: 1.2; }
+
+            /* Boutons d'action flottants plus compacts */
+            .fixed.bottom-4.right-4 { gap: .35rem; bottom: .5rem; right: .5rem; }
+            .fixed.bottom-4.right-4 button { padding: 0.55rem 0.7rem; }
         }
     </style>
 </head>
@@ -182,7 +195,7 @@
             </div>
 
             <!-- TITRE + INSPECTEUR (ENCADRÉ, 2 cellules côte à côte) -->
-            <table class="w-full border-collapse border-2 border-black mb-3">
+            <table class="w-full border-collapse border-2 border-black mb-3 resp-table">
                 <tr>
                     <td class="border-2 border-black p-3 text-center align-middle font-serif" style="width:58%;">
                         <span class="text-2xl font-bold">Rapport d'évaluation<br>du travail de l'enseignant</span>
@@ -204,7 +217,7 @@
             </p>
 
             <!-- IDENTIFICATION (1 tableau, 2 cellules : enseignant | visite) -->
-            <table class="w-full text-sm border-collapse border-2 border-black mb-5">
+            <table class="w-full text-sm border-collapse border-2 border-black mb-5 resp-table">
                 <tr>
                     <td class="border-2 border-black p-2 w-1/2 align-top leading-relaxed">
                         <p class="font-bold">Nom et prénom de l'enseignant (e) :
