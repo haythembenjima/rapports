@@ -127,12 +127,21 @@
         <!-- VUE 1 : FORMULAIRE -->
         <div id="view-form">
 
-            <!-- NOTES MANUSCRITES -> RAPPORT (IA MULTIMODALE) -->
-            <div class="no-print mb-5 flex flex-wrap items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg p-3 font-sans">
-                <span class="text-sm text-indigo-900 font-bold"><i class="fas fa-camera-retro"></i> Notes manuscrites → rapport (IA) :</span>
-                <button type="button" id="btn-handwritten" onclick="document.getElementById('handwritten-file').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-upload"></i> Charger des images</button>
-                <input type="file" id="handwritten-file" accept="image/*" multiple capture="environment" class="hidden" onchange="window.handleHandwrittenFiles(event)">
-                <span class="text-xs text-gray-500">Lit vos prises de notes (FR/AR) et pré-remplit la description, les observations par compétence et la synthèse, dans le jargon d'inspection.</span>
+            <!-- NOTES MANUSCRITES -> RAPPORT (IA en ligne / hors-ligne via la banque) -->
+            <div class="no-print mb-5 bg-indigo-50 border border-indigo-200 rounded-lg p-3 font-sans">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm text-indigo-900 font-bold"><i class="fas fa-camera-retro"></i> Notes manuscrites → rapport :</span>
+                    <button type="button" id="btn-photo" onclick="document.getElementById('handwritten-camera').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-camera"></i> Prendre une photo</button>
+                    <button type="button" id="btn-handwritten" onclick="document.getElementById('handwritten-file').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-images"></i> Charger des images</button>
+                    <input type="file" id="handwritten-camera" accept="image/*" capture="environment" class="hidden" onchange="window.handleHandwrittenFiles(event)">
+                    <input type="file" id="handwritten-file" accept="image/*" multiple class="hidden" onchange="window.handleHandwrittenFiles(event)">
+                    <label class="text-xs text-gray-700 ml-1 flex items-center gap-1 cursor-pointer" title="Décochez pour générer hors-ligne à partir de la banque"><input type="checkbox" id="ai-mode-online" checked onchange="window.toggleAiMode()"> IA en ligne (Gemini)</label>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">En ligne : lecture par l'IA Gemini (meilleure qualité, requiert Internet + clé). Hors ligne : reconnaissance sur l'appareil puis génération à partir de la <b>banque de jargon</b> (relisez/complétez le texte avant analyse).</p>
+                <div id="offline-notes-wrap" class="mt-2 hidden">
+                    <textarea id="offline-notes" rows="3" class="w-full text-sm border rounded p-2 focus:outline-none focus:ring focus:ring-indigo-200" placeholder="Texte reconnu des notes (modifiable) — ou saisissez/collez ici vos notes brutes, puis cliquez sur Analyser…"></textarea>
+                    <button type="button" id="btn-analyze-offline" onclick="window.analyzeNotesOffline()" class="mt-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-bolt"></i> Analyser (hors ligne) → remplir le rapport</button>
+                </div>
             </div>
 
             <!-- EN-TÊTE EXACT SELON LE MODÈLE OFFICIEL (compact, sans cadre) -->
@@ -444,6 +453,9 @@
             currentAdminPassHash = await hashText(DEFAULT_PASS);
             attachAutoDraft();
             updateBankStatus();
+            // Mode IA par défaut : en ligne si connecté, sinon hors-ligne (banque)
+            const aiCb = document.getElementById('ai-mode-online');
+            if(aiCb){ aiCb.checked = navigator.onLine !== false; window.toggleAiMode && window.toggleAiMode(); }
 
             try {
                 const app = initializeApp(firebaseConfig);
@@ -953,6 +965,18 @@ Données :\n${ctx}`;
             try { return JSON.parse(s); } catch(e) { return null; }
         }
 
+        // Affiche les notes 0-5 par indicateur (sans déclencher la régénération des observations)
+        function setIndicatorScoresDisplay(scores) {
+            let k = 0;
+            gridData.forEach(c => c.items.forEach(it => {
+                const v = Number(scores[k++]);
+                if(v >= 0 && v <= 5){
+                    const r = document.getElementById(`${it.id}-${v}`); if(r) r.checked = true;
+                    const p = document.getElementById(`print-val-${it.id}`); if(p) p.innerText = v;
+                }
+            }));
+        }
+
         // Applique la réponse IA (texte JSON) aux champs du rapport. Retourne true si OK.
         window.applyHandwrittenResult = function(rawText) {
             const data = parseJsonLoose(rawText);
@@ -964,25 +988,41 @@ Données :\n${ctx}`;
                 if(t && obs[idx]){ t.value = String(obs[idx]); window.autoResize(t); }
             });
             if(data.synthese){ const sy = document.getElementById('global-comment'); if(sy){ sy.value = String(data.synthese); window.autoResize(sy); } }
+            // Note /20 proposée + scores par indicateur (affichage)
+            let note = null;
+            if(Array.isArray(data.scores) && data.scores.length === 20){
+                setIndicatorScoresDisplay(data.scores);
+                const tot = data.scores.reduce((a,b) => a + (Number(b)||0), 0);
+                note = (tot / (20*5)) * 20;
+            }
+            if(typeof data.note === 'number') note = data.note;
+            else if(data.note != null && !isNaN(parseFloat(data.note))) note = parseFloat(data.note);
+            if(note != null){
+                const sEl = document.getElementById('final-score-display');
+                if(sEl){ sEl.value = Math.max(0, Math.min(20, Number(note))).toFixed(2); }
+                if(window.onScoreManualEdit) window.onScoreManualEdit();   // verrouille la note proposée
+                if(window.calculateScore) window.calculateScore();          // met à jour le compteur d'indicateurs
+            }
             window.saveDraft();
             return !!(data.description || obs.length || data.synthese);
         };
 
-        window.handleHandwrittenFiles = async function(event) {
-            const files = [...event.target.files]; event.target.value = '';
-            if(!files.length) return;
-            const imgFiles = files.filter(f => f.type.startsWith('image/'));
-            if(!imgFiles.length){ notify("Veuillez sélectionner des images.", "warn"); return; }
-            if(imgFiles.length > 8){ notify("Maximum 8 images à la fois.", "warn"); return; }
+        window.toggleAiMode = function() {
+            const online = document.getElementById('ai-mode-online')?.checked;
+            const wrap = document.getElementById('offline-notes-wrap');
+            if(wrap) wrap.classList.toggle('hidden', !!online);
+        };
+
+        // ----- Mode EN LIGNE (Gemini multimodal) -----
+        async function runOnlineAI(imgFiles) {
             const btn = document.getElementById('btn-handwritten');
             const old = btn ? btn.innerHTML : '';
-            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lecture en cours…'; }
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lecture IA…'; }
             try {
                 const imgs = await Promise.all(imgFiles.map(f => new Promise((res, rej) => {
                     const r = new FileReader();
                     r.onload = () => res({ mimeType: f.type || 'image/jpeg', data: String(r.result).split(',')[1] });
-                    r.onerror = rej;
-                    r.readAsDataURL(f);
+                    r.onerror = rej; r.readAsDataURL(f);
                 })));
                 const g = genderTokens();
                 const civ = document.getElementById('input-civility').value;
@@ -993,15 +1033,18 @@ Enseignant(e) : ${civ} ${nom || '(non renseigné)'} — accorde TOUT le texte au
 
 Réponds STRICTEMENT par un objet JSON (aucun texte hors JSON, pas de Markdown), de la forme exacte :
 {
-  "description": "Description factuelle du déroulement de la séance, à la 3e personne, au présent, en respectant la chronologie des phases (mise en situation, développement, synthèse, évaluation).",
+  "description": "Description factuelle du déroulement de la séance, à la 3e personne, au présent.",
   "observations": ["Organisation du travail","Maîtrise des connaissances et de la didactique","Ingénierie de l'apprentissage","Gestion de la classe","Évaluation","Parcours professionnel"],
+  "scores": [20 entiers de 0 à 5 (0=néant,1=insuffisant,2=passable,3=bien,4=très bien,5=excellent), dans l'ordre EXACT des composantes listées dans le guide ci-dessous],
+  "note": 0,
   "synthese": "1 à 2 phrases d'introduction sur les atouts, puis des recommandations à l'infinitif (chaque recommandation sur une nouvelle ligne débutant par « - »), puis une courte conclusion d'encouragement adaptée au niveau global."
 }
 
 Règles impératives :
-- "observations" doit contenir EXACTEMENT 6 éléments, dans CET ordre (un par compétence ci-dessus). Chaque observation = 2 à 4 phrases mêlant constats et propositions, ciblant les composantes de la compétence.
-- Réutilise le VOCABULAIRE et les TOURNURES du guide ci-dessous (jargon d'inspection officiel). N'invente aucun fait absent des notes ; reste général si une information manque (pas de chiffres inventés).
-- Style sobre, neutre, à la 3e personne, sans Markdown (pas de #, pas de **).
+- "observations" doit contenir EXACTEMENT 6 éléments (un par compétence). Chaque observation = 2 à 4 phrases mêlant constats et propositions.
+- "scores" doit contenir EXACTEMENT 20 entiers (un par composante, même ordre que le guide). "note" = moyenne ramenée sur 20 (arrondie à 0,5 près) cohérente avec les scores.
+- Réutilise le VOCABULAIRE et les TOURNURES du guide (jargon d'inspection officiel). N'invente aucun fait absent des notes.
+- Style sobre, neutre, sans Markdown.
 
 Guide de jargon par compétence (composantes ; tournures ; recommandations) :
 ${buildJargonGuide()}`;
@@ -1009,13 +1052,113 @@ ${buildJargonGuide()}`;
                 notify("Lecture des notes manuscrites par l'IA…", "info");
                 const raw = await geminiGenerateParts(parts);
                 if(!window.applyHandwrittenResult(raw)) throw new Error("Réponse IA illisible (format JSON attendu). Réessayez.");
-                window.switchTab('form');
-                notify("Rapport pré-rempli à partir des notes. Relisez et ajustez avant d'enregistrer.", "success", 7000);
+                notify("Rapport pré-rempli (avec note proposée). Relisez et ajustez avant d'enregistrer.", "success", 7000);
             } catch(e) {
-                notify("Erreur IA : " + (e?.message || "vérifiez votre clé API"), "error", 7000);
+                notify("Erreur IA : " + (e?.message || "vérifiez votre clé API ou passez en mode hors-ligne"), "error", 8000);
             } finally {
                 if(btn){ btn.disabled = false; btn.innerHTML = old; }
             }
+        }
+
+        // ----- Mode HORS-LIGNE : OCR sur l'appareil + génération via la banque -----
+        function loadScriptOnce(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('Chargement impossible : ' + src)); document.head.appendChild(s); }); }
+        async function ensureTesseract(){ if(window.Tesseract) return window.Tesseract; await loadScriptOnce('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'); if(!window.Tesseract) throw new Error('Moteur OCR indisponible'); return window.Tesseract; }
+        async function runOcrToText(imgFiles, onProgress){
+            const T = await ensureTesseract();
+            let out = '';
+            for(let i=0;i<imgFiles.length;i++){
+                const { data } = await T.recognize(imgFiles[i], 'fra', { logger: m => { if(m.status === 'recognizing text' && onProgress) onProgress(i, m.progress); } });
+                out += (out ? '\n' : '') + (data.text || '');
+            }
+            return out.trim();
+        }
+
+        async function runOfflineOCR(imgFiles){
+            const cb = document.getElementById('ai-mode-online'); if(cb) cb.checked = false; window.toggleAiMode();
+            const ta = document.getElementById('offline-notes');
+            const btn = document.getElementById('btn-handwritten'); const old = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reconnaissance…'; }
+            try {
+                notify("Reconnaissance du texte sur l'appareil… (peut prendre un moment)", "info", 6000);
+                const text = await runOcrToText(imgFiles, (i, p) => { if(btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> OCR ${Math.round(p*100)}%`; });
+                if(ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
+                notify("Texte reconnu. Relisez/corrigez si besoin — analyse en cours…", "success", 5000);
+                window.analyzeNotesOffline();
+            } catch(e) {
+                notify("OCR hors-ligne indisponible (moteur non chargé). Saisissez/collez le texte des notes ci-dessus, puis cliquez sur « Analyser ».", "warn", 9000);
+            } finally {
+                if(btn){ btn.disabled = false; btn.innerHTML = old; }
+            }
+        }
+
+        // Règles mots-clés -> niveau (0-5) par indicateur, basées sur le vocabulaire de la banque
+        const OFFLINE_RULES = [
+            {id:'org-1', strong:['absence.{0,15}preparation','aucune preparation'], neg:['preparation.{0,20}(n est pas|pas) satisfaisante','fiches.{0,15}(ne sont pas|pas|mal)','pas prepares'], pos:['preparation.{0,15}(soignee|rigoureuse)','planification.{0,15}rigoureuse']},
+            {id:'org-2', strong:['cahier de textes vide','non presente'], neg:['cahier de textes.{0,15}n est pas a jour','tenue.{0,15}necessite','presentation.{0,15}necessite'], pos:['bien tenu','exemplaire']},
+            {id:'org-3', strong:['ne sont pas controles','non controles'], neg:['controler davantage','a controler','doivent etre controles'], pos:['bien tenus','suivi rigoureux','controle serieux']},
+            {id:'org-4', strong:['retard critique'], neg:['retard','progression.{0,15}lente'], pos:['conforme aux programmes officiels et a la charge horaire','realisation optimale','avancement']},
+            {id:'mai-1', strong:['faible maitrise','langue.{0,10}inadaptee'], neg:['maladresses linguistiques','amalgame','moyennement la langue','debit.{0,15}rapide'], pos:['langue d enseignement est bonne','bonne maitrise de la langue','elocution']},
+            {id:'mai-2', strong:['erreurs scientifiques lourdes'], neg:['n est pas satisfaisante','peu claire','pas presentees','erreurs scientifiques'], pos:['exactes et adaptees','bonne maitrise des connaissances','expertise']},
+            {id:'mai-3', strong:['absence de transposition'], neg:['transposition didactique.{0,15}(insuffisante|passable)','maitrise insuffisante de la didactique'], pos:['excellente maitrise didactique','transposition didactique.{0,15}acceptable']},
+            {id:'ing-1', strong:['transmissive','tres faible degre'], neg:['passive','strictement guidee','monopolisation','manque d implication'], pos:['methode active','ingenierie remarquable']},
+            {id:'ing-2', strong:['inadaptees'], neg:['faible niveau d adequation','dictee','manquant de variete'], pos:['demarche inductive','diversification efficace']},
+            {id:'ing-3', strong:['absence de fil conducteur'], neg:['agitation','longues et ennuyeuses'], pos:['scenario pedagogique coherent','scenarisation captivante','bien articule']},
+            {id:'ing-4', strong:['absence d utilisation de supports'], neg:['tableau.{0,20}(n a pas ete|non) exploite','insatisfaisante','mal presentes','usage excessif'], pos:['exploitation.{0,15}satisfaisante','schematisation claire','supports varies et adaptes','bon escient']},
+            {id:'ges-1', strong:['desorganise'], neg:['peu propice'], pos:['amenagement favorisant','optimisation de l espace']},
+            {id:'ges-2', strong:['effacee','insatisfaisantes'], neg:['insuffisantes','timide','a revoir','meritent d etre ameliorees'], pos:['remarquables','dynamique de groupe excellente']},
+            {id:'ges-3', strong:['climat tendu'], neg:['gestion de la classe.{0,15}insatisfaisante','sens unique','distante'], pos:['relation de confiance','personnalite.{0,15}influente','bienveillante','bons rapports']},
+            {id:'eva-1', strong:['absence.{0,15}evaluation'], neg:['insuffisante.{0,15}diagnostique','peu efficace','questions fermees','plus d importance a l evaluation diagnostique'], pos:['dispositif complet','recours aux differents types','bien presente']},
+            {id:'eva-2', strong:['aucune.{0,15}remediation'], neg:['absence d un compte rendu','ponctuelles','exploiter l erreur'], pos:['remediation.{0,15}fonctionnels','traitement de l erreur','bonne exploitation des erreurs','attention ciblee']},
+            {id:'eva-3', strong:['non conforme','non respecte'], neg:['pas conforme','irregularites','respect partiel'], pos:['bien presente','conforme au programme officiel','docimologique','bien construites']},
+            {id:'pro-1', strong:['n assiste pas','absence de participation','refus'], neg:['faible interet','profiter davantage','besoin de tirer'], pos:['assiste regulierement','investissement serieux','autoformation','accompli avec soin']},
+            {id:'pro-2', strong:['aucune initiative'], neg:['routine','timides'], pos:['force de proposition','profil innovant','initiative et innovation']},
+            {id:'pro-3', strong:['incapacite'], neg:['difficultes a analyser','a approfondir'], pos:['analyse reflexive.{0,15}satisfaisante','attitude d ecoute positive','ouverture','praticien reflexif']}
+        ];
+
+        function normTxt(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u0027\u2019]/g,' ').replace(/\s+/g,' '); }
+        function inferLevelsFromText(text){
+            const t = normTxt(text); const levels = {};
+            OFFLINE_RULES.forEach(r => {
+                const strong = r.strong && r.strong.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
+                const neg = r.neg && r.neg.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
+                const pos = r.pos && r.pos.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
+                let lv = 3;
+                if(strong) lv = 1; else if(neg && !pos) lv = 2; else if(pos && !neg) lv = 4;
+                levels[r.id] = lv;
+            });
+            gridData.forEach(c => c.items.forEach(it => { if(levels[it.id] == null) levels[it.id] = 3; }));
+            return levels;
+        }
+
+        // Génère le rapport HORS-LIGNE à partir du texte des notes + la banque
+        window.analyzeNotesOffline = function(){
+            const ta = document.getElementById('offline-notes');
+            const text = ta ? ta.value.trim() : '';
+            if(!text){ notify("Aucun texte à analyser : chargez des images ou saisissez les notes.", "warn"); return; }
+            const levels = inferLevelsFromText(text);
+            gridData.forEach(c => c.items.forEach(it => {
+                const lv = levels[it.id];
+                const r = document.getElementById(`${it.id}-${lv}`); if(r) r.checked = true;
+                const p = document.getElementById(`print-val-${it.id}`); if(p) p.innerText = lv;
+            }));
+            gridData.forEach((c, idx) => window.updateCategoryObservation(idx));   // observations depuis la banque
+            const d = document.getElementById('desc-lesson');
+            if(d && !d.value.trim()){ d.value = text; window.autoResize(d); }        // description = notes brutes (à reformuler)
+            if(window.resetAutoScore) window.resetAutoScore(); else window.calculateScore();   // note /20 proposée (auto)
+            window.generateAutoSynthesis();                                          // synthèse depuis la banque
+            window.saveDraft();
+            notify("Rapport généré hors-ligne à partir de la banque (note /20 proposée). Relisez et ajustez.", "success", 7000);
+        };
+
+        window.handleHandwrittenFiles = async function(event) {
+            const files = [...event.target.files]; event.target.value = '';
+            if(!files.length) return;
+            const imgFiles = files.filter(f => f.type.startsWith('image/'));
+            if(!imgFiles.length){ notify("Veuillez sélectionner des images.", "warn"); return; }
+            if(imgFiles.length > 8){ notify("Maximum 8 images à la fois.", "warn"); return; }
+            const online = !!document.getElementById('ai-mode-online')?.checked && navigator.onLine;
+            if(online) await runOnlineAI(imgFiles);
+            else await runOfflineOCR(imgFiles);
         };
 
         // ---------- VALIDATION ----------
