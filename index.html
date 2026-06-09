@@ -687,14 +687,15 @@
                 else {
                     let text = obsPhrase(item.id, score);
                     if(!text) text = obsPhrase(item.id, score <= 2 ? 0 : 3) || obsPhrase(item.id, 5);
-                    if(text) itemsData.push({ score: score, text: text });
+                    itemsData.push({ id: item.id, score: score, text: text || "" });
                 }
             });
 
             if(allRated && itemsData.length > 0) {
-                let positives = itemsData.filter(i => i.score >= 3).map(i => i.text);
-                let negatives = itemsData.filter(i => i.score < 3).map(i => i.text);
+                let positives = itemsData.filter(i => i.score >= 3 && i.text).map(i => i.text);
+                let negatives = itemsData.filter(i => i.score < 3 && i.text).map(i => i.text);
 
+                // 1) ARGUMENTS (constats)
                 let sentence = "";
                 let intro = "Concernant " + cat.cat.toLowerCase() + ", on relève ";
                 if (cat.id === "mai") intro = "Au niveau de la maîtrise disciplinaire, on note ";
@@ -705,18 +706,55 @@
                     sentence = intro + joinWithCommas(positives) + ".";
                 } else if (positives.length === 0) {
                     sentence = intro + joinWithCommas(negatives) + ".";
+                } else if (positives.length >= negatives.length) {
+                    sentence = `Bien que l'on observe ${joinWithCommas(positives)}, on relève cependant ${joinWithCommas(negatives)}.`;
                 } else {
-                    if (positives.length >= negatives.length) {
-                        sentence = `Bien que l'on observe ${joinWithCommas(positives)}, on relève cependant ${joinWithCommas(negatives)}.`;
-                    } else {
-                        sentence = `Malgré ${joinWithCommas(positives)}, la prestation souffre malheureusement de ${joinWithCommas(negatives)}.`;
-                    }
+                    sentence = `Malgré ${joinWithCommas(positives)}, la prestation souffre malheureusement de ${joinWithCommas(negatives)}.`;
                 }
 
-                sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
-                txtArea.value = sentence;
+                const parts = [ sentence.charAt(0).toUpperCase() + sentence.slice(1) ];
+
+                // Les 4 premières compétences : on ajoute propositions + appréciation générale (comme dans les fiches)
+                if (catIndex < 4) {
+                    const g = genderTokens();
+                    // 2) PROPOSITIONS : recommandations pour les composantes à améliorer (note <= 3)
+                    let recs = itemsData.filter(i => i.score <= 3).map(i => recoPhrase(i.id)).filter(Boolean);
+                    recs = [...new Set(recs)].slice(0, 3);
+                    if (recs.length) {
+                        const art = g.article.charAt(0).toUpperCase() + g.article.slice(1);
+                        parts.push(`${art} est ${g.f ? 'invitée' : 'invité'} à ${joinEt(recs)}.`);
+                    }
+                    // 3) APPRÉCIATION GÉNÉRALE
+                    const avg = itemsData.reduce((a, i) => a + i.score, 0) / itemsData.length;
+                    parts.push(categoryAppreciation(cat.id, avg));
+                }
+
+                txtArea.value = parts.filter(Boolean).join(' ');
                 window.autoResize(txtArea);
             }
+        }
+
+        function joinEt(arr) {
+            if (!arr.length) return "";
+            if (arr.length === 1) return arr[0];
+            const c = arr.slice(); const last = c.pop();
+            return c.join(", ") + " et " + last;
+        }
+        // Appréciation générale d'une compétence selon le niveau moyen (adjectifs au féminin)
+        function categoryAppreciation(catId, avg) {
+            let q;
+            if (avg < 2) q = "insuffisante";
+            else if (avg < 3) q = "passable";
+            else if (avg < 4) q = "acceptable";
+            else if (avg < 4.5) q = "satisfaisante";
+            else q = "remarquable";
+            const lead = {
+                org: "Globalement, l'organisation du travail est",
+                mai: "Dans l'ensemble, la maîtrise des connaissances et de la didactique de la discipline est",
+                ing: "D'une façon générale, l'ingénierie de l'apprentissage est",
+                ges: "Globalement, la gestion de la classe est"
+            };
+            return `${lead[catId] || "Globalement, cette compétence est"} ${q}.`;
         }
 
         function joinWithCommas(arr) {
@@ -724,7 +762,8 @@
             if (arr.length === 1) return arr[0];
             const copy = arr.slice();
             const last = copy.pop();
-            return copy.join(", ") + " ainsi qu'" + last;
+            const liaison = /^[aàâäeéèêëiîïoôöuùûühyœæ]/i.test(last) ? "ainsi qu'" : "ainsi que ";
+            return copy.join(", ") + " " + liaison + last;
         }
 
         let manualScore = false;   // true => la note /20 est saisie à la main (non recalculée)
