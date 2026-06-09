@@ -57,6 +57,13 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Generate app icon & splash
+        run: npx @capacitor/assets generate --android
+
+      - name: Add camera permission to manifest
+        run: |
+          node -e "const fs=require('fs');const f='android/app/src/main/AndroidManifest.xml';let s=fs.readFileSync(f,'utf8');if(!s.includes('android.permission.CAMERA')){s=s.replace('<application','<uses-permission android:name=\"android.permission.CAMERA\"/>\n    <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>\n\n    <application');fs.writeFileSync(f,s);console.log('CAMERA permission ajoutée');}else{console.log('déjà présente');}"
+
       - name: Build debug APK
         run: |
           cd android
