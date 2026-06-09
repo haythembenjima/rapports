@@ -1,12 +1,11 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Dernière version](https://img.shields.io/github/v/release/haythembenjima/rapports?style=for-the-badge&label=version)](https://github.com/haythembenjima/rapports/releases/latest)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.0.0/Rapport-Inspection.apk)
 
-> **⬇️ Télécharger l'application Windows :** [**Rapport Inspection — Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
+> **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.0.0/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
->
-> Ce lien pointe toujours vers la **dernière version** publiée.
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
 (discipline **Gestion**, modèle officiel du Ministère de l'Éducation tunisien).
