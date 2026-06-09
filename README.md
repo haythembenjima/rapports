@@ -33,6 +33,7 @@ Elle fonctionne de trois façons :
 - **Historique** des rapports (Firebase ou local), recherche, statistiques, export CSV.
 - **Import** d'un rapport au format `.json` (pour le retrouver dans l'historique).
 - **Banque de phrases éditable** : le langage des *observations* et des *recommandations* est exportable/importable en JSON ; plusieurs variantes par niveau (0–5) sont tirées au hasard pour éviter les répétitions (onglet Historique → *Banque de phrases*).
+- **Notes manuscrites → rapport (IA)** : un bouton permet de **charger des photos** des prises de notes manuscrites de la visite ; l'IA multimodale (Gemini) les lit et **pré-remplit** automatiquement la description du déroulement, les observations par compétence et la synthèse, dans le jargon d'inspection.
 
 ## Construire l'application Windows (.exe)
 

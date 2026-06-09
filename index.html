@@ -127,6 +127,14 @@
         <!-- VUE 1 : FORMULAIRE -->
         <div id="view-form">
 
+            <!-- NOTES MANUSCRITES -> RAPPORT (IA MULTIMODALE) -->
+            <div class="no-print mb-5 flex flex-wrap items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg p-3 font-sans">
+                <span class="text-sm text-indigo-900 font-bold"><i class="fas fa-camera-retro"></i> Notes manuscrites → rapport (IA) :</span>
+                <button type="button" id="btn-handwritten" onclick="document.getElementById('handwritten-file').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-upload"></i> Charger des images</button>
+                <input type="file" id="handwritten-file" accept="image/*" multiple capture="environment" class="hidden" onchange="window.handleHandwrittenFiles(event)">
+                <span class="text-xs text-gray-500">Lit vos prises de notes (FR/AR) et pré-remplit la description, les observations par compétence et la synthèse, dans le jargon d'inspection.</span>
+            </div>
+
             <!-- EN-TÊTE EXACT SELON LE MODÈLE OFFICIEL (compact, sans cadre) -->
             <div class="flex justify-between items-start mb-4 text-sm font-bold leading-tight">
                 <div>
@@ -903,6 +911,111 @@ Données :\n${ctx}`;
             } catch(e){
                 notify("Erreur IA : " + (e?.message || "vérifiez votre clé API"), "error", 5000);
             } finally { btn.innerHTML=old; btn.disabled=false; }
+        };
+
+        // ---------- IA MULTIMODALE : NOTES MANUSCRITES -> RAPPORT ----------
+        // Appel Gemini avec des parts mixtes (texte + images)
+        async function geminiGenerateParts(parts) {
+            const key = await getGeminiKey();
+            const ai = new GoogleGenerativeAI(key);
+            let lastErr;
+            for(const modelName of GEMINI_MODELS) {
+                try {
+                    const m = ai.getGenerativeModel({ model: modelName });
+                    const res = await m.generateContent(parts);
+                    return res.response.text().trim();
+                } catch(e) { lastErr = e; }
+            }
+            throw lastErr || new Error("Échec de génération");
+        }
+
+        // Construit un guide de jargon (extrait de la banque) pour orienter le style de l'IA
+        function buildJargonGuide() {
+            let s = '';
+            gridData.forEach((cat, idx) => {
+                s += `${idx}. ${cat.cat}\n   Composantes : ${cat.items.map(i => i.label).join(' ; ')}\n`;
+                const frags = [];
+                cat.items.forEach(it => { [1,3,5].forEach(lv => { const v = commentsDB[it.id] && commentsDB[it.id][lv]; if(v){ const x = Array.isArray(v)?v[0]:v; if(x) frags.push(x); } }); });
+                s += `   Tournures : ${frags.slice(0,5).join(' ; ')}\n`;
+                const recs = [];
+                cat.items.forEach(it => { const r = recoDB[it.id]; if(r) recs.push(Array.isArray(r)?r[0]:r); });
+                s += `   Recommandations : ${recs.slice(0,4).join(' ; ')}\n`;
+            });
+            return s;
+        }
+
+        // Extrait un objet JSON même entouré de texte / de balises Markdown
+        function parseJsonLoose(raw) {
+            if(!raw) return null;
+            let s = String(raw).replace(/```json/gi,'').replace(/```/g,'').trim();
+            const a = s.indexOf('{'), b = s.lastIndexOf('}');
+            if(a >= 0 && b > a) s = s.slice(a, b+1);
+            try { return JSON.parse(s); } catch(e) { return null; }
+        }
+
+        // Applique la réponse IA (texte JSON) aux champs du rapport. Retourne true si OK.
+        window.applyHandwrittenResult = function(rawText) {
+            const data = parseJsonLoose(rawText);
+            if(!data || typeof data !== 'object') return false;
+            if(data.description){ const d = document.getElementById('desc-lesson'); if(d){ d.value = String(data.description); window.autoResize(d); } }
+            const obs = Array.isArray(data.observations) ? data.observations : [];
+            gridData.forEach((c, idx) => {
+                const t = document.getElementById(`obs-cat-${idx}`);
+                if(t && obs[idx]){ t.value = String(obs[idx]); window.autoResize(t); }
+            });
+            if(data.synthese){ const sy = document.getElementById('global-comment'); if(sy){ sy.value = String(data.synthese); window.autoResize(sy); } }
+            window.saveDraft();
+            return !!(data.description || obs.length || data.synthese);
+        };
+
+        window.handleHandwrittenFiles = async function(event) {
+            const files = [...event.target.files]; event.target.value = '';
+            if(!files.length) return;
+            const imgFiles = files.filter(f => f.type.startsWith('image/'));
+            if(!imgFiles.length){ notify("Veuillez sélectionner des images.", "warn"); return; }
+            if(imgFiles.length > 8){ notify("Maximum 8 images à la fois.", "warn"); return; }
+            const btn = document.getElementById('btn-handwritten');
+            const old = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lecture en cours…'; }
+            try {
+                const imgs = await Promise.all(imgFiles.map(f => new Promise((res, rej) => {
+                    const r = new FileReader();
+                    r.onload = () => res({ mimeType: f.type || 'image/jpeg', data: String(r.result).split(',')[1] });
+                    r.onerror = rej;
+                    r.readAsDataURL(f);
+                })));
+                const g = genderTokens();
+                const civ = document.getElementById('input-civility').value;
+                const nom = document.getElementById('input-teacher').value || '';
+                const prompt = `Tu es inspecteur(trice) pédagogique de la discipline « Gestion » (Ministère de l'Éducation tunisien). On te fournit des PHOTOS de notes manuscrites prises lors d'une visite d'inspection (en français et/ou en arabe). Lis-les attentivement et rédige un rapport d'évaluation structuré, EN FRANÇAIS, dans le style administratif officiel d'inspection.
+
+Enseignant(e) : ${civ} ${nom || '(non renseigné)'} — accorde TOUT le texte au genre ${g.f ? 'féminin (enseignante, elle)' : 'masculin (enseignant, il)'}.
+
+Réponds STRICTEMENT par un objet JSON (aucun texte hors JSON, pas de Markdown), de la forme exacte :
+{
+  "description": "Description factuelle du déroulement de la séance, à la 3e personne, au présent, en respectant la chronologie des phases (mise en situation, développement, synthèse, évaluation).",
+  "observations": ["Organisation du travail","Maîtrise des connaissances et de la didactique","Ingénierie de l'apprentissage","Gestion de la classe","Évaluation","Parcours professionnel"],
+  "synthese": "1 à 2 phrases d'introduction sur les atouts, puis des recommandations à l'infinitif (chaque recommandation sur une nouvelle ligne débutant par « - »), puis une courte conclusion d'encouragement adaptée au niveau global."
+}
+
+Règles impératives :
+- "observations" doit contenir EXACTEMENT 6 éléments, dans CET ordre (un par compétence ci-dessus). Chaque observation = 2 à 4 phrases mêlant constats et propositions, ciblant les composantes de la compétence.
+- Réutilise le VOCABULAIRE et les TOURNURES du guide ci-dessous (jargon d'inspection officiel). N'invente aucun fait absent des notes ; reste général si une information manque (pas de chiffres inventés).
+- Style sobre, neutre, à la 3e personne, sans Markdown (pas de #, pas de **).
+
+Guide de jargon par compétence (composantes ; tournures ; recommandations) :
+${buildJargonGuide()}`;
+                const parts = [prompt, ...imgs.map(i => ({ inlineData: { data: i.data, mimeType: i.mimeType } }))];
+                notify("Lecture des notes manuscrites par l'IA…", "info");
+                const raw = await geminiGenerateParts(parts);
+                if(!window.applyHandwrittenResult(raw)) throw new Error("Réponse IA illisible (format JSON attendu). Réessayez.");
+                window.switchTab('form');
+                notify("Rapport pré-rempli à partir des notes. Relisez et ajustez avant d'enregistrer.", "success", 7000);
+            } catch(e) {
+                notify("Erreur IA : " + (e?.message || "vérifiez votre clé API"), "error", 7000);
+            } finally {
+                if(btn){ btn.disabled = false; btn.innerHTML = old; }
+            }
         };
 
         // ---------- VALIDATION ----------
