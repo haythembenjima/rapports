@@ -851,6 +851,7 @@
         }
 
         let draftTimer = null;
+        let formTouched = false;   // passe à true dès que l'utilisateur saisit quelque chose (évite l'écrasement par la restauration différée)
         window.saveDraft = function() {
             clearTimeout(draftTimer);
             draftTimer = setTimeout(() => {
@@ -863,13 +864,18 @@
         };
 
         function attachAutoDraft() {
+            const markTouched = () => { formTouched = true; };
             document.querySelectorAll('input, textarea, select').forEach(el => {
+                el.addEventListener('input', markTouched);
+                el.addEventListener('change', markTouched);
                 el.addEventListener('input', window.saveDraft);
                 el.addEventListener('change', window.saveDraft);
             });
         }
 
         function maybeRestoreDraft() {
+            // Ne pas interrompre / écraser si l'utilisateur a déjà commencé à remplir le formulaire
+            if(formTouched) return;
             let raw;
             try { raw = localStorage.getItem(DRAFT_KEY); } catch(e) { return; }
             if(!raw) return;
@@ -886,6 +892,7 @@
                 try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
             }
         }
+        window.maybeRestoreDraft = maybeRestoreDraft;
 
         function clearDraft() {
             try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
