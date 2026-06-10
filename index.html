@@ -1367,16 +1367,17 @@ ${buildJargonGuide()}`;
                 });
                 if(!text){ notify("Aucun texte détecté sur l'image. Saisissez/collez le texte des notes, puis cliquez sur « Analyser ».", "warn", 9000); return; }
                 if(ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
-                // Confiance basse = presque toujours de l'écriture MANUSCRITE : Tesseract (hors-ligne)
-                // ne sait lire que le texte imprimé. On bascule alors vers l'IA en ligne si possible.
-                const unreliable = confidence != null && confidence < 65;
+                // Confiance basse OU texte qui ne ressemble pas à du français = presque toujours de
+                // l'écriture MANUSCRITE : Tesseract (hors-ligne) ne sait lire que le texte imprimé.
+                // On évite alors de remplir tous les indicateurs à 3 (résultat trompeur).
+                const unreliable = (confidence != null && confidence < 70) || !looksLikeFrench(text);
                 if(unreliable && navigator.onLine){
                     notify("Texte peu fiable (écriture manuscrite ?). Passage à l'IA en ligne pour un meilleur résultat…", "info", 7000);
                     if(btn){ btn.disabled = false; btn.innerHTML = old; }
                     try { await runOnlineAI(imgFiles); return; } catch(_) {}
                 }
                 if(unreliable){
-                    notify("Reconnaissance peu fiable : l'OCR hors-ligne ne lit que le texte IMPRIMÉ, pas l'écriture manuscrite. Pour des notes manuscrites, cochez « IA en ligne (Gemini) ». Vous pouvez aussi corriger le texte ci-dessus puis « Analyser ».", "warn", 13000);
+                    notify("Reconnaissance peu fiable : l'OCR hors-ligne ne lit que le texte IMPRIMÉ, pas l'écriture manuscrite (la grille n'a pas été remplie pour éviter des notes erronées). Pour des notes manuscrites, cochez « IA en ligne (Gemini) », ou corrigez le texte ci-dessus puis « Analyser ».", "warn", 14000);
                     return;
                 }
                 notify("Texte reconnu. Relisez/corrigez si besoin — analyse en cours…", "success", 5000);
@@ -1420,6 +1421,16 @@ ${buildJargonGuide()}`;
         ];
 
         function normTxt(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u0027\u2019]/g,' ').replace(/\s+/g,' '); }
+        // Détecte si un texte ressemble vraiment à du français (vs charabia d'OCR sur du manuscrit).
+        // Plus fiable que la « confiance » de Tesseract, qui reste parfois élevée sur du charabia.
+        function looksLikeFrench(text){
+            const t = ' ' + normTxt(text) + ' ';
+            const stop = [' le ',' la ',' les ',' de ',' des ',' du ',' un ',' une ',' et ',' est ',' en ',' au ',' aux ',' dans ',' pour ',' que ',' qui ',' ne ',' pas ',' sur ',' avec ',' son ',' sa ',' ses ',' il ',' elle ',' a ',' l ',' d ',' ce ',' cette ',' plus ',' ou ',' par '];
+            let hits = 0; for(const s of stop){ if(t.includes(s)) hits++; }
+            const words = (text.match(/[A-Za-zÀ-ÿ]{2,}/g) || []).length;
+            if(words < 5) return false;
+            return words >= 12 ? hits >= 4 : hits >= 2;
+        }
         function inferLevelsFromText(text){
             const t = normTxt(text); const levels = {};
             OFFLINE_RULES.forEach(r => {
