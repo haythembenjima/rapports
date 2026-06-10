@@ -1262,25 +1262,62 @@ ${buildJargonGuide()}`;
 
         // ----- Mode HORS-LIGNE : OCR sur l'appareil + génération via la banque -----
         function loadScriptOnce(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('Chargement impossible : ' + src)); document.head.appendChild(s); }); }
-        let _ocrBase = null;   // './ocr/' si les fichiers OCR sont embarqués dans l'app (hors-ligne total)
+        let _ocrBase = null;   // URL absolue de './ocr/' si les fichiers OCR sont embarqués (hors-ligne total)
         async function ensureTesseract(){
             if(window.Tesseract) return window.Tesseract;
-            // 1) tente les fichiers embarqués (installateur) -> OCR 100% hors-ligne
-            try { await loadScriptOnce('./ocr/tesseract.min.js'); if(window.Tesseract) _ocrBase = './ocr/'; } catch(e) {}
+            // 1) tente les fichiers embarqués (installateur / APK) -> OCR 100% hors-ligne
+            try { await loadScriptOnce('./ocr/tesseract.min.js'); if(window.Tesseract) _ocrBase = new URL('./ocr/', location.href).href; } catch(e) {}
             // 2) sinon, CDN (nécessite Internet la première fois, puis cache navigateur)
             if(!window.Tesseract){ await loadScriptOnce('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'); }
             if(!window.Tesseract) throw new Error('Moteur OCR indisponible');
             return window.Tesseract;
         }
+        function withTimeout(promise, ms, msg){
+            let t; const timeout = new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg)), ms); });
+            return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+        }
+        // Réduit les grandes photos (galerie : 8–12 Mpx) avant l'OCR : sinon Tesseract sature la
+        // mémoire de la WebView Android et semble « bloqué ». ~2000 px suffisent pour lire le texte.
+        function fileToImage(file){ return new Promise((res, rej) => { const url = URL.createObjectURL(file); const img = new Image(); img.onload = () => { URL.revokeObjectURL(url); res(img); }; img.onerror = e => { URL.revokeObjectURL(url); rej(e); }; img.src = url; }); }
+        async function downscaleForOcr(file, maxDim = 2000){
+            try {
+                const img = await fileToImage(file);
+                const w = img.naturalWidth, h = img.naturalHeight;
+                const scale = Math.min(1, maxDim / Math.max(w, h || 1));
+                if(scale >= 1 || !w || !h) return file; // déjà assez petite
+                const c = document.createElement('canvas');
+                c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                return c; // un <canvas> est accepté par Tesseract
+            } catch(e) { return file; }
+        }
+        const OCR_LABELS = {
+            'loading tesseract core': 'Chargement du moteur',
+            'initializing tesseract': 'Initialisation',
+            'initialized tesseract': 'Initialisation',
+            'loading language traineddata': 'Chargement de la langue',
+            'loaded language traineddata': 'Chargement de la langue',
+            'initializing api': 'Préparation',
+            'initialized api': 'Préparation',
+            'recognizing text': 'Lecture du texte'
+        };
         async function runOcrToText(imgFiles, onProgress){
             const T = await ensureTesseract();
+            const opts = { logger: m => { if(onProgress) onProgress(m); } };
+            if(_ocrBase){ opts.workerPath = _ocrBase + 'worker.min.js'; opts.corePath = _ocrBase; opts.langPath = _ocrBase; }
+            // Un seul worker réutilisé pour toutes les images, puis libéré (évite les fuites mémoire).
+            let worker = null;
+            try { worker = await withTimeout(T.createWorker('fra', 1, opts), 120000, 'OCR: initialisation trop longue'); } catch(e) { worker = null; }
             let out = '';
-            for(let i=0;i<imgFiles.length;i++){
-                const opts = { logger: m => { if(m.status === 'recognizing text' && onProgress) onProgress(i, m.progress); } };
-                if(_ocrBase){ opts.workerPath = _ocrBase + 'worker.min.js'; opts.corePath = _ocrBase; opts.langPath = _ocrBase; }
-                const { data } = await T.recognize(imgFiles[i], 'fra', opts);
-                out += (out ? '\n' : '') + (data.text || '');
-            }
+            try {
+                for(let i = 0; i < imgFiles.length; i++){
+                    if(onProgress) onProgress({ status: 'recognizing text', progress: 0, _img: i });
+                    const input = await downscaleForOcr(imgFiles[i]);
+                    const rec = worker ? worker.recognize(input) : T.recognize(input, 'fra', opts);
+                    const { data } = await withTimeout(rec, 120000, 'OCR: image trop longue à analyser');
+                    out += (out ? '\n' : '') + (data.text || '');
+                }
+            } finally { if(worker){ try { await worker.terminate(); } catch(_) {} } }
             return out.trim();
         }
 
@@ -1289,14 +1326,22 @@ ${buildJargonGuide()}`;
             const ta = document.getElementById('offline-notes');
             const btn = document.getElementById('btn-handwritten'); const old = btn ? btn.innerHTML : '';
             if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reconnaissance…'; }
+            const total = imgFiles.length;
             try {
                 notify("Reconnaissance du texte sur l'appareil… (peut prendre un moment)", "info", 6000);
-                const text = await runOcrToText(imgFiles, (i, p) => { if(btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> OCR ${Math.round(p*100)}%`; });
+                const text = await runOcrToText(imgFiles, (m) => {
+                    if(!btn) return;
+                    const label = OCR_LABELS[m.status] || 'Reconnaissance';
+                    const pct = (m.progress != null && m.status === 'recognizing text') ? ' ' + Math.round(m.progress * 100) + '%' : '…';
+                    const imgInfo = (total > 1 && m._img != null) ? ` (image ${m._img + 1}/${total})` : '';
+                    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${label}${pct}${imgInfo}`;
+                });
+                if(!text){ notify("Aucun texte détecté sur l'image. Saisissez/collez le texte des notes, puis cliquez sur « Analyser ».", "warn", 9000); return; }
                 if(ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
                 notify("Texte reconnu. Relisez/corrigez si besoin — analyse en cours…", "success", 5000);
                 window.analyzeNotesOffline();
             } catch(e) {
-                notify("OCR hors-ligne indisponible (moteur non chargé). Saisissez/collez le texte des notes ci-dessus, puis cliquez sur « Analyser ».", "warn", 9000);
+                notify("OCR hors-ligne interrompu (" + (e && e.message ? e.message : 'erreur') + "). Saisissez/collez le texte des notes ci-dessus, puis cliquez sur « Analyser ».", "warn", 10000);
             } finally {
                 if(btn){ btn.disabled = false; btn.innerHTML = old; }
             }
