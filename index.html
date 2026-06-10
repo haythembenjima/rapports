@@ -103,6 +103,17 @@
             /* Boutons d'action flottants plus compacts */
             .fixed.bottom-4.right-4 { gap: .35rem; bottom: .5rem; right: .5rem; }
             .fixed.bottom-4.right-4 button { padding: 0.55rem 0.7rem; }
+
+            /* PDF/impression sur mobile : rétablir la mise en page « bureau » complète
+               (tableau d'évaluation entier + en-tête non empilé) le temps de la capture. */
+            .render-print, .render-print body { overflow: visible !important; }
+            .render-print #report-container { width: auto !important; max-width: 21cm !important; padding: 2rem !important; overflow: visible !important; }
+            .render-print #view-form > .flex.justify-between { flex-wrap: nowrap !important; }
+            .render-print #view-form > .flex.justify-between > div { width: auto !important; text-align: initial !important; }
+            .render-print .resp-table { display: table !important; width: 100% !important; }
+            .render-print .resp-table tbody { display: table-row-group !important; }
+            .render-print .resp-table tr { display: table-row !important; }
+            .render-print .resp-table td { display: table-cell !important; width: auto !important; border: 1px solid #000 !important; }
         }
 
         /* Cartes mobiles (masquées par défaut ; affichées sur petit écran via la règle ci-dessus) */
@@ -1788,11 +1799,14 @@ ${buildJargonGuide()}`;
             const date = (document.getElementById('input-date').value || '').replace(/[^\w\-]+/g, '_');
             const filename = `Rapport_${teacher}${date ? '_' + date : ''}.pdf`;
             document.body.classList.add('render-print');
+            // Sur mobile, on force un rendu « bureau » (largeur A4 ≈ 820px) sinon html2canvas
+            // capture à la largeur étroite du téléphone et le tableau d'évaluation est tronqué.
+            const renderWidth = Math.max(820, document.documentElement.clientWidth);
             const opt = {
                 margin: [10, 10, 12, 10],
                 filename: filename,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: renderWidth, width: renderWidth },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak: { mode: ['css', 'legacy'] }
             };
