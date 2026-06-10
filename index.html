@@ -307,7 +307,7 @@
                 <button onclick="window.handleSave()" id="btn-save" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Enregistrer le rapport"><i class="fas fa-save"></i></button>
                 <button onclick="window.exportPDF()" id="btn-pdf" class="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Télécharger en PDF"><i class="fas fa-file-pdf"></i></button>
                 <button onclick="window.exportWord()" id="btn-word" class="bg-sky-700 hover:bg-sky-800 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Télécharger en Word (.docx)"><i class="fas fa-file-word"></i></button>
-                <button onclick="window.print()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Imprimer le rapport"><i class="fas fa-print"></i></button>
+                <button onclick="window.handlePrint()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Imprimer le rapport"><i class="fas fa-print"></i></button>
             </div>
         </div>
 
@@ -1728,33 +1728,49 @@ ${buildJargonGuide()}`;
         // ---------- EXPORT PDF ----------
         // Enregistre/partage un fichier : natif (Capacitor) sur mobile, téléchargement classique sinon
         function blobToBase64(blob){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
-        function isNativeApp(){ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+        // Accès aux plugins natifs : d'abord le bundle Capacitor (www/native-entry.js → window.__cap),
+        // sinon le pont natif injecté (window.Capacitor.Plugins).
+        function nativeBridge(){
+            if(window.__cap && window.__cap.isNative) return window.__cap;
+            if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins){
+                return { isNative: true, Filesystem: window.Capacitor.Plugins.Filesystem, Share: window.Capacitor.Plugins.Share, Directory: { Documents:'DOCUMENTS', ExternalStorage:'EXTERNAL_STORAGE', Cache:'CACHE' } };
+            }
+            return null;
+        }
+        function isNativeApp(){ const b = nativeBridge(); return !!(b && b.isNative); }
+        // Enregistre un blob sur mobile (Capacitor) ; renvoie un message décrivant l'emplacement, ou null si échec/non-natif.
+        async function saveBlobNative(blob, filename){
+            const b = nativeBridge();
+            if(!b || !b.Filesystem) return null;
+            const Filesystem = b.Filesystem, Directory = b.Directory || {}, Share = b.Share;
+            const data = await blobToBase64(blob);
+            // 1) Dossier public « Documents » (visible dans l'appli Fichiers → Documents, fiable sur Android récent).
+            try {
+                await Filesystem.writeFile({ path: filename, data, directory: Directory.Documents || 'DOCUMENTS', recursive: true });
+                return "Enregistré dans le dossier Documents du téléphone : " + filename;
+            } catch(e1) {}
+            // 2) Sinon, dossier public « Téléchargements » (fonctionne sur Android ≤ 10).
+            try {
+                await Filesystem.writeFile({ path: 'Download/' + filename, data, directory: Directory.ExternalStorage || 'EXTERNAL_STORAGE', recursive: true });
+                return "Enregistré dans Téléchargements : " + filename;
+            } catch(e2) {}
+            // 3) Dernier repli : cache + panneau de partage (« Enregistrer dans Fichiers / Téléchargements »).
+            try {
+                const w = await Filesystem.writeFile({ path: filename, data, directory: Directory.Cache || 'CACHE', recursive: true });
+                if(Share){
+                    try { await Share.share({ title: filename, files: [w.uri], dialogTitle: 'Enregistrer le rapport' }); return "Choisissez où enregistrer : " + filename; }
+                    catch(e){ try { await Share.share({ title: filename, url: w.uri }); return "Choisissez où enregistrer : " + filename; } catch(_) {} }
+                }
+                return "Fichier prêt : " + filename;
+            } catch(e3) {}
+            return false; // échec complet
+        }
         async function saveBlob(blob, filename){
-            if(isNativeApp() && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem){
-                const Filesystem = window.Capacitor.Plugins.Filesystem;
-                const data = await blobToBase64(blob);
-                // 1) Dossier public « Téléchargements »
-                try {
-                    await Filesystem.writeFile({ path: 'Download/' + filename, data, directory: 'EXTERNAL_STORAGE', recursive: true });
-                    notify("Enregistré dans Téléchargements : " + filename, "success", 7000);
-                    return;
-                } catch(e1) {}
-                // 2) Sinon, dossier public « Documents »
-                try {
-                    await Filesystem.writeFile({ path: filename, data, directory: 'DOCUMENTS', recursive: true });
-                    notify("Enregistré dans Documents : " + filename, "success", 7000);
-                    return;
-                } catch(e2) {}
-                // 3) Dernier repli : cache + panneau de partage
-                try {
-                    const w = await Filesystem.writeFile({ path: filename, data, directory: 'CACHE', recursive: true });
-                    const Share = window.Capacitor.Plugins.Share;
-                    if(Share){
-                        try { await Share.share({ title: filename, files: [w.uri], dialogTitle: 'Enregistrer le rapport' }); }
-                        catch(e){ try { await Share.share({ title: filename, url: w.uri }); } catch(_) { notify("Fichier prêt : " + filename, "info", 6000); } }
-                    } else { notify("Fichier prêt : " + filename, "info", 6000); }
-                    return;
-                } catch(e3) { notify("Échec de l'enregistrement du fichier.", "error", 6000); return; }
+            if(isNativeApp()){
+                const msg = await saveBlobNative(blob, filename);
+                if(msg) notify(msg, "success", 8000);
+                else notify("Échec de l'enregistrement du fichier.", "error", 6000);
+                return !!msg;
             }
             // Navigateur / PC : téléchargement standard
             const a = document.createElement('a');
@@ -1762,6 +1778,7 @@ ${buildJargonGuide()}`;
             a.download = filename;
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            return true;
         }
 
         window.exportPDF = async function() {
@@ -1784,15 +1801,26 @@ ${buildJargonGuide()}`;
                 const worker = html2pdf().set(opt).from(el);
                 if(isNativeApp()){
                     const blob = await worker.outputPdf('blob');
-                    await saveBlob(blob, filename);
+                    await saveBlob(blob, filename); // saveBlob notifie déjà l'emplacement
                 } else {
                     await worker.save();
+                    notify("PDF généré.", "success");
                 }
-                notify("PDF généré.", "success");
             } catch(e) {
                 notify("Erreur lors de la génération du PDF.", "error");
             } finally {
                 document.body.classList.remove('render-print');
+            }
+        };
+
+        // Impression : window.print() ne fonctionne pas dans la WebView Android.
+        // Sur mobile (appli native), on génère un PDF que l'utilisateur pourra ouvrir et imprimer.
+        window.handlePrint = function() {
+            if(isNativeApp()){
+                notify("L'impression directe n'est pas disponible sur mobile : génération d'un PDF à imprimer…", "info", 6000);
+                window.exportPDF();
+            } else {
+                window.print();
             }
         };
 
@@ -1829,7 +1857,7 @@ ${buildJargonGuide()}`;
         function _downloadWord(doc, filename) {
             docx.Packer.toBlob(doc)
                 .then(blob => saveBlob(blob, filename))
-                .then(() => notify("Document Word généré.", "success"))
+                .then(ok => { if(ok && !isNativeApp()) notify("Document Word généré.", "success"); })
                 .catch(e => notify("Erreur Word : " + e.message, "error", 5000));
         }
 
