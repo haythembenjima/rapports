@@ -1316,12 +1316,25 @@ ${buildJargonGuide()}`;
                 opts.corePath = _ocrBase;
                 opts.langPath = _ocrBase;
                 opts.gzip = false; // on utilise fra.traineddata NON compressé (pas de décompression qui coince)
+                // CLÉ DU BLOCAGE EN WEBVIEW : par défaut Tesseract enveloppe le worker dans un blob:
+                // (origine opaque) → le téléchargement XHR de la langue est bloqué (CORS) et reste figé.
+                // Le worker étant embarqué et de même origine, on désactive cette enveloppe.
+                opts.workerBlobURL = false;
+                // Préchauffage : on vérifie d'abord, depuis le thread principal, que le modèle est
+                // bien accessible (et on le signale), pour distinguer « fichier injoignable » d'un blocage moteur.
+                try {
+                    const t0 = (performance && performance.now) ? performance.now() : Date.now();
+                    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 15000);
+                    const r = await fetch(_ocrBase + 'fra.traineddata', { signal: ctrl.signal }); const b = await r.blob(); clearTimeout(to);
+                    const ms = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - t0);
+                    if(onProgress) onProgress({ status: 'preflight', _msg: `modèle ${r.ok ? 'OK' : 'HTTP ' + r.status} ${Math.round(b.size/1024)} Ko en ${ms} ms` });
+                } catch(e) {
+                    if(onProgress) onProgress({ status: 'preflight', _msg: 'modèle injoignable : ' + (e.name === 'AbortError' ? 'délai dépassé' : (e.message || e.name)) });
+                }
             } else {
                 opts.gzip = true;  // modèle .gz depuis le CDN
             }
             // Un seul worker réutilisé pour toutes les images, puis libéré (évite les fuites mémoire).
-            // Si l'initialisation (chargement de la langue) traîne, on abandonne avec un message clair
-            // plutôt que de rester figé indéfiniment.
             const worker = await withTimeout(T.createWorker('fra', 1, opts), 45000, "Chargement de la langue trop long");
             let out = '';
             try {
@@ -1344,6 +1357,7 @@ ${buildJargonGuide()}`;
             try {
                 notify("Reconnaissance du texte sur l'appareil… (peut prendre un moment)", "info", 6000);
                 const text = await runOcrToText(imgFiles, (m) => {
+                    if(m.status === 'preflight'){ notify("Diagnostic OCR : " + (m._msg || ''), "info", 9000); return; }
                     if(!btn) return;
                     const label = OCR_LABELS[m.status] || 'Reconnaissance';
                     const pct = (m.progress != null && m.status === 'recognizing text') ? ' ' + Math.round(m.progress * 100) + '%' : '…';
