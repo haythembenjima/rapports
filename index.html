@@ -199,7 +199,7 @@
                     <input type="file" id="handwritten-pdf" accept="application/pdf,.pdf" class="hidden" onchange="window.handleHandwrittenFiles(event)">
                     <label class="text-xs text-gray-700 ml-1 flex items-center gap-1 cursor-pointer" title="Décochez pour générer hors-ligne à partir de la banque"><input type="checkbox" id="ai-mode-online" checked onchange="window.toggleAiMode()"> IA en ligne (Gemini)</label>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">En ligne : lecture par l'IA Gemini (meilleure qualité, requiert Internet + clé). Hors ligne : reconnaissance sur l'appareil puis génération à partir de la <b>banque de jargon</b> (relisez/complétez le texte avant analyse).</p>
+                <p class="text-xs text-gray-500 mt-1">En ligne : lecture par l'IA Gemini (meilleure qualité, lit aussi l'<b>écriture manuscrite</b> ; requiert Internet + clé). Hors ligne : OCR sur l'appareil — adapté au <b>texte imprimé/tapé</b> (l'écriture manuscrite n'est pas reconnue), puis génération à partir de la <b>banque de jargon</b>.</p>
                 <div id="offline-notes-wrap" class="mt-2 hidden">
                     <textarea id="offline-notes" rows="3" class="w-full text-sm border rounded p-2 focus:outline-none focus:ring focus:ring-indigo-200" placeholder="Texte reconnu des notes (modifiable) — ou saisissez/collez ici vos notes brutes, puis cliquez sur Analyser…"></textarea>
                     <button type="button" id="btn-analyze-offline" onclick="window.analyzeNotesOffline()" class="mt-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-bolt"></i> Analyser (hors ligne) → remplir le rapport</button>
@@ -1336,16 +1336,17 @@ ${buildJargonGuide()}`;
             }
             // Un seul worker réutilisé pour toutes les images, puis libéré (évite les fuites mémoire).
             const worker = await withTimeout(T.createWorker('fra', 1, opts), 45000, "Chargement de la langue trop long");
-            let out = '';
+            let out = ''; const confs = [];
             try {
                 for(let i = 0; i < imgFiles.length; i++){
                     if(onProgress) onProgress({ status: 'recognizing text', progress: 0, _img: i });
                     const input = await downscaleForOcr(imgFiles[i]);
                     const { data } = await withTimeout(worker.recognize(input), 60000, 'Image trop longue à analyser');
                     out += (out ? '\n' : '') + (data.text || '');
+                    if(typeof data.confidence === 'number') confs.push(data.confidence);
                 }
             } finally { try { await worker.terminate(); } catch(_) {} }
-            return out.trim();
+            return { text: out.trim(), confidence: confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : null };
         }
 
         async function runOfflineOCR(imgFiles){
@@ -1356,7 +1357,7 @@ ${buildJargonGuide()}`;
             const total = imgFiles.length;
             try {
                 notify("Reconnaissance du texte sur l'appareil… (peut prendre un moment)", "info", 6000);
-                const text = await runOcrToText(imgFiles, (m) => {
+                const { text, confidence } = await runOcrToText(imgFiles, (m) => {
                     if(m.status === 'preflight'){ notify("Diagnostic OCR : " + (m._msg || ''), "info", 9000); return; }
                     if(!btn) return;
                     const label = OCR_LABELS[m.status] || 'Reconnaissance';
@@ -1366,6 +1367,18 @@ ${buildJargonGuide()}`;
                 });
                 if(!text){ notify("Aucun texte détecté sur l'image. Saisissez/collez le texte des notes, puis cliquez sur « Analyser ».", "warn", 9000); return; }
                 if(ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
+                // Confiance basse = presque toujours de l'écriture MANUSCRITE : Tesseract (hors-ligne)
+                // ne sait lire que le texte imprimé. On bascule alors vers l'IA en ligne si possible.
+                const unreliable = confidence != null && confidence < 65;
+                if(unreliable && navigator.onLine){
+                    notify("Texte peu fiable (écriture manuscrite ?). Passage à l'IA en ligne pour un meilleur résultat…", "info", 7000);
+                    if(btn){ btn.disabled = false; btn.innerHTML = old; }
+                    try { await runOnlineAI(imgFiles); return; } catch(_) {}
+                }
+                if(unreliable){
+                    notify("Reconnaissance peu fiable : l'OCR hors-ligne ne lit que le texte IMPRIMÉ, pas l'écriture manuscrite. Pour des notes manuscrites, cochez « IA en ligne (Gemini) ». Vous pouvez aussi corriger le texte ci-dessus puis « Analyser ».", "warn", 13000);
+                    return;
+                }
                 notify("Texte reconnu. Relisez/corrigez si besoin — analyse en cours…", "success", 5000);
                 window.analyzeNotesOffline();
             } catch(e) {
