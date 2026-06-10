@@ -1732,16 +1732,29 @@ ${buildJargonGuide()}`;
         async function saveBlob(blob, filename){
             if(isNativeApp() && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem){
                 const Filesystem = window.Capacitor.Plugins.Filesystem;
-                const Share = window.Capacitor.Plugins.Share;
                 const data = await blobToBase64(blob);
-                const written = await Filesystem.writeFile({ path: filename, data, directory: 'CACHE', recursive: true });
-                if(Share){
-                    try { await Share.share({ title: filename, files: [written.uri], dialogTitle: 'Enregistrer / partager le rapport' }); }
-                    catch(e){ try { await Share.share({ title: filename, url: written.uri }); } catch(e2){ notify("Fichier enregistré : " + filename, "success", 6000); } }
-                } else {
-                    notify("Fichier enregistré : " + filename, "success", 6000);
-                }
-                return;
+                // 1) Dossier public « Téléchargements »
+                try {
+                    await Filesystem.writeFile({ path: 'Download/' + filename, data, directory: 'EXTERNAL_STORAGE', recursive: true });
+                    notify("Enregistré dans Téléchargements : " + filename, "success", 7000);
+                    return;
+                } catch(e1) {}
+                // 2) Sinon, dossier public « Documents »
+                try {
+                    await Filesystem.writeFile({ path: filename, data, directory: 'DOCUMENTS', recursive: true });
+                    notify("Enregistré dans Documents : " + filename, "success", 7000);
+                    return;
+                } catch(e2) {}
+                // 3) Dernier repli : cache + panneau de partage
+                try {
+                    const w = await Filesystem.writeFile({ path: filename, data, directory: 'CACHE', recursive: true });
+                    const Share = window.Capacitor.Plugins.Share;
+                    if(Share){
+                        try { await Share.share({ title: filename, files: [w.uri], dialogTitle: 'Enregistrer le rapport' }); }
+                        catch(e){ try { await Share.share({ title: filename, url: w.uri }); } catch(_) { notify("Fichier prêt : " + filename, "info", 6000); } }
+                    } else { notify("Fichier prêt : " + filename, "info", 6000); }
+                    return;
+                } catch(e3) { notify("Échec de l'enregistrement du fichier.", "error", 6000); return; }
             }
             // Navigateur / PC : téléchargement standard
             const a = document.createElement('a');
