@@ -1792,6 +1792,37 @@ ${buildJargonGuide()}`;
             return true;
         }
 
+        // html2canvas ne sait pas faire passer le texte d'un <textarea> à la ligne : il le rend
+        // sur une seule ligne tronquée. Avant la capture PDF, on remplace chaque <textarea> par un
+        // <div> équivalent (texte qui s'enroule), puis on restaure tout après.
+        function textareasToStatic(root){
+            root.querySelectorAll('textarea').forEach(ta => {
+                const cs = getComputedStyle(ta);
+                const div = document.createElement('div');
+                div.textContent = ta.value || '';
+                div.className = ta.className;
+                div.setAttribute('data-pdf-static', '1');
+                div.style.whiteSpace = 'pre-wrap';
+                div.style.wordBreak = 'break-word';
+                div.style.overflow = 'visible';
+                div.style.width = '100%';
+                div.style.boxSizing = 'border-box';
+                div.style.font = cs.font;
+                div.style.lineHeight = cs.lineHeight;
+                div.style.textAlign = cs.textAlign;
+                div.style.padding = cs.padding;
+                div.style.color = cs.color;
+                div.style.minHeight = cs.minHeight && cs.minHeight !== '0px' ? cs.minHeight : '60px';
+                ta.setAttribute('data-pdf-hidden', '1');
+                ta.style.display = 'none';
+                ta.parentNode.insertBefore(div, ta);
+            });
+        }
+        function restoreTextareas(root){
+            root.querySelectorAll('[data-pdf-static]').forEach(n => n.remove());
+            root.querySelectorAll('[data-pdf-hidden]').forEach(n => { n.style.display = ''; n.removeAttribute('data-pdf-hidden'); });
+        }
+
         window.exportPDF = async function() {
             if(!validateForm()) return;
             const el = document.getElementById('view-form');
@@ -1799,12 +1830,13 @@ ${buildJargonGuide()}`;
             const date = (document.getElementById('input-date').value || '').replace(/[^\w\-]+/g, '_');
             const filename = `Rapport_${teacher}${date ? '_' + date : ''}.pdf`;
             document.body.classList.add('render-print');
+            textareasToStatic(el); // texte des observations/synthèse rendu sur plusieurs lignes
             // Sur mobile, on force un rendu « bureau » (largeur A4 ≈ 820px) sinon html2canvas
             // capture à la largeur étroite du téléphone et le tableau d'évaluation est tronqué.
             const renderWidth = Math.max(820, document.documentElement.clientWidth);
             // La WebView Android limite la hauteur max d'un canvas : à scale 2 un rapport de
             // plusieurs pages dépasse cette limite et n'est capturé qu'en partie (un fragment).
-            // On adapte donc l'échelle pour que la hauteur du canvas reste sous ~10000 px.
+            // On adapte donc l'échelle pour que la hauteur du canvas reste sous ~7000 px.
             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
             const contentHeight = el.scrollHeight || 3000;
             const maxCanvasPx = 7000; // marge sous la limite de hauteur de canvas des WebView Android (~8192 px)
@@ -1830,6 +1862,7 @@ ${buildJargonGuide()}`;
             } catch(e) {
                 notify("Erreur lors de la génération du PDF.", "error");
             } finally {
+                restoreTextareas(el);
                 document.body.classList.remove('render-print');
             }
         };
