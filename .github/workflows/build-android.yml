@@ -60,9 +60,9 @@ jobs:
       - name: Generate app icon & splash
         run: npx @capacitor/assets generate --android
 
-      - name: Add camera permission to manifest
+      - name: Add permissions to manifest (caméra + stockage)
         run: |
-          node -e "const fs=require('fs');const f='android/app/src/main/AndroidManifest.xml';let s=fs.readFileSync(f,'utf8');if(!s.includes('android.permission.CAMERA')){s=s.replace('<application','<uses-permission android:name=\"android.permission.CAMERA\"/>\n    <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>\n\n    <application');fs.writeFileSync(f,s);console.log('CAMERA permission ajoutée');}else{console.log('déjà présente');}"
+          node -e "const fs=require('fs');const f='android/app/src/main/AndroidManifest.xml';let s=fs.readFileSync(f,'utf8');let add='';if(!s.includes('android.permission.CAMERA'))add+='<uses-permission android:name=\"android.permission.CAMERA\"/>\n    <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>\n    ';if(!s.includes('WRITE_EXTERNAL_STORAGE'))add+='<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" android:maxSdkVersion=\"29\"/>\n    ';if(add){s=s.replace('<application',add+'\n    <application');fs.writeFileSync(f,s);console.log('permissions ajoutées');}else{console.log('déjà présentes');}"
 
       - name: Build debug APK
         run: |
