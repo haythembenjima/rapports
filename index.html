@@ -193,8 +193,10 @@
                     <span class="text-sm text-indigo-900 font-bold"><i class="fas fa-camera-retro"></i> Notes manuscrites → rapport :</span>
                     <button type="button" id="btn-photo" onclick="document.getElementById('handwritten-camera').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-camera"></i> Prendre une photo</button>
                     <button type="button" id="btn-handwritten" onclick="document.getElementById('handwritten-file').click()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-images"></i> Charger des images</button>
+                    <button type="button" id="btn-pdf-import" onclick="document.getElementById('handwritten-pdf').click()" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow" title="Charger un fichier PDF (notes scannées)"><i class="fas fa-file-pdf"></i> Charger un PDF</button>
                     <input type="file" id="handwritten-camera" accept="image/*" capture="environment" class="hidden" onchange="window.handleHandwrittenFiles(event)">
                     <input type="file" id="handwritten-file" accept="image/*" multiple class="hidden" onchange="window.handleHandwrittenFiles(event)">
+                    <input type="file" id="handwritten-pdf" accept="application/pdf,.pdf" class="hidden" onchange="window.handleHandwrittenFiles(event)">
                     <label class="text-xs text-gray-700 ml-1 flex items-center gap-1 cursor-pointer" title="Décochez pour générer hors-ligne à partir de la banque"><input type="checkbox" id="ai-mode-online" checked onchange="window.toggleAiMode()"> IA en ligne (Gemini)</label>
                 </div>
                 <p class="text-xs text-gray-500 mt-1">En ligne : lecture par l'IA Gemini (meilleure qualité, requiert Internet + clé). Hors ligne : reconnaissance sur l'appareil puis génération à partir de la <b>banque de jargon</b> (relisez/complétez le texte avant analyse).</p>
@@ -1279,7 +1281,7 @@ ${buildJargonGuide()}`;
         // Réduit les grandes photos (galerie : 8–12 Mpx) avant l'OCR : sinon Tesseract sature la
         // mémoire de la WebView Android et semble « bloqué ». ~2000 px suffisent pour lire le texte.
         function fileToImage(file){ return new Promise((res, rej) => { const url = URL.createObjectURL(file); const img = new Image(); img.onload = () => { URL.revokeObjectURL(url); res(img); }; img.onerror = e => { URL.revokeObjectURL(url); rej(e); }; img.src = url; }); }
-        async function downscaleForOcr(file, maxDim = 2000){
+        async function downscaleForOcr(file, maxDim = 1500){
             try {
                 const img = await fileToImage(file);
                 const w = img.naturalWidth, h = img.naturalHeight;
@@ -1407,12 +1409,55 @@ ${buildJargonGuide()}`;
             notify("Rapport généré hors-ligne à partir de la banque (note /20 proposée). Relisez et ajustez.", "success", 7000);
         };
 
+        // ----- Lecteur PDF (pdf.js) : convertit un PDF en images, puis même traitement que les photos -----
+        let _pdfBase = null;
+        async function ensurePdfJs(){
+            if(window.pdfjsLib) return window.pdfjsLib;
+            // 1) fichiers embarqués (APK/installateur) -> fonctionne hors-ligne
+            try { await loadScriptOnce('./ocr/pdf.min.js'); if(window.pdfjsLib) _pdfBase = new URL('./ocr/', location.href).href; } catch(e) {}
+            // 2) sinon CDN
+            if(!window.pdfjsLib){ await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'); }
+            if(!window.pdfjsLib) throw new Error('Lecteur PDF indisponible');
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = _pdfBase ? (_pdfBase + 'pdf.worker.min.js') : 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            return window.pdfjsLib;
+        }
+        async function pdfToImageFiles(file, maxPages = 6, targetW = 1500){
+            const pdfjsLib = await ensurePdfJs();
+            const buf = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+            const n = Math.min(pdf.numPages, maxPages);
+            const out = [];
+            for(let p = 1; p <= n; p++){
+                const page = await pdf.getPage(p);
+                const base = page.getViewport({ scale: 1 });
+                const scale = Math.min(2, (targetW / base.width) || 1);
+                const vp = page.getViewport({ scale });
+                const c = document.createElement('canvas');
+                c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+                await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+                const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+                if(blob) out.push(new File([blob], `pdf-page-${p}.jpg`, { type: 'image/jpeg' }));
+            }
+            return out;
+        }
+
         window.handleHandwrittenFiles = async function(event) {
             const files = [...event.target.files]; event.target.value = '';
             if(!files.length) return;
-            const imgFiles = files.filter(f => f.type.startsWith('image/'));
-            if(!imgFiles.length){ notify("Veuillez sélectionner des images.", "warn"); return; }
-            if(imgFiles.length > 8){ notify("Maximum 8 images à la fois.", "warn"); return; }
+            let imgFiles = files.filter(f => f.type.startsWith('image/'));
+            const pdfFiles = files.filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+            if(pdfFiles.length){
+                const btn = document.getElementById('btn-pdf-import'); const old = btn ? btn.innerHTML : '';
+                try {
+                    if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lecture du PDF…'; }
+                    notify("Conversion du PDF en images…", "info", 5000);
+                    for(const pf of pdfFiles){ imgFiles = imgFiles.concat(await pdfToImageFiles(pf)); }
+                } catch(e) {
+                    notify("Impossible de lire le PDF (" + (e?.message || 'erreur') + ").", "error", 8000);
+                } finally { if(btn){ btn.disabled = false; btn.innerHTML = old; } }
+            }
+            if(!imgFiles.length){ notify("Veuillez sélectionner des images ou un PDF lisible.", "warn"); return; }
+            if(imgFiles.length > 8){ imgFiles = imgFiles.slice(0, 8); notify("Seules les 8 premières pages/images sont analysées.", "info", 6000); }
             const online = !!document.getElementById('ai-mode-online')?.checked && navigator.onLine;
             if(online) await runOnlineAI(imgFiles);
             else await runOfflineOCR(imgFiles);
