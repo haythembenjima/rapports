@@ -1802,11 +1802,18 @@ ${buildJargonGuide()}`;
             // Sur mobile, on force un rendu « bureau » (largeur A4 ≈ 820px) sinon html2canvas
             // capture à la largeur étroite du téléphone et le tableau d'évaluation est tronqué.
             const renderWidth = Math.max(820, document.documentElement.clientWidth);
+            // La WebView Android limite la hauteur max d'un canvas : à scale 2 un rapport de
+            // plusieurs pages dépasse cette limite et n'est capturé qu'en partie (un fragment).
+            // On adapte donc l'échelle pour que la hauteur du canvas reste sous ~10000 px.
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const contentHeight = el.scrollHeight || 3000;
+            const maxCanvasPx = 7000; // marge sous la limite de hauteur de canvas des WebView Android (~8192 px)
+            let scale = isNativeApp() ? Math.min(1.5, Math.max(1, maxCanvasPx / contentHeight)) : 2;
             const opt = {
                 margin: [10, 10, 12, 10],
                 filename: filename,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: renderWidth, width: renderWidth },
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { scale, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: renderWidth, width: renderWidth },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak: { mode: ['css', 'legacy'] }
             };
