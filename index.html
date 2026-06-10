@@ -1726,25 +1726,61 @@ ${buildJargonGuide()}`;
         };
 
         // ---------- EXPORT PDF ----------
-        window.exportPDF = function() {
+        // Enregistre/partage un fichier : natif (Capacitor) sur mobile, téléchargement classique sinon
+        function blobToBase64(blob){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
+        function isNativeApp(){ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+        async function saveBlob(blob, filename){
+            if(isNativeApp() && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem){
+                const Filesystem = window.Capacitor.Plugins.Filesystem;
+                const Share = window.Capacitor.Plugins.Share;
+                const data = await blobToBase64(blob);
+                const written = await Filesystem.writeFile({ path: filename, data, directory: 'CACHE', recursive: true });
+                if(Share){
+                    try { await Share.share({ title: filename, files: [written.uri], dialogTitle: 'Enregistrer / partager le rapport' }); }
+                    catch(e){ try { await Share.share({ title: filename, url: written.uri }); } catch(e2){ notify("Fichier enregistré : " + filename, "success", 6000); } }
+                } else {
+                    notify("Fichier enregistré : " + filename, "success", 6000);
+                }
+                return;
+            }
+            // Navigateur / PC : téléchargement standard
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        }
+
+        window.exportPDF = async function() {
             if(!validateForm()) return;
             const el = document.getElementById('view-form');
             const teacher = (document.getElementById('input-teacher').value || 'rapport').replace(/[^\w\-]+/g, '_');
             const date = (document.getElementById('input-date').value || '').replace(/[^\w\-]+/g, '_');
+            const filename = `Rapport_${teacher}${date ? '_' + date : ''}.pdf`;
             document.body.classList.add('render-print');
             const opt = {
                 margin: [10, 10, 12, 10],
-                filename: `Rapport_${teacher}${date ? '_' + date : ''}.pdf`,
+                filename: filename,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak: { mode: ['css', 'legacy'] }
             };
             notify("Génération du PDF en cours...", "info");
-            html2pdf().set(opt).from(el).save()
-                .then(() => notify("PDF généré.", "success"))
-                .catch(() => notify("Erreur lors de la génération du PDF.", "error"))
-                .finally(() => document.body.classList.remove('render-print'));
+            try {
+                const worker = html2pdf().set(opt).from(el);
+                if(isNativeApp()){
+                    const blob = await worker.outputPdf('blob');
+                    await saveBlob(blob, filename);
+                } else {
+                    await worker.save();
+                }
+                notify("PDF généré.", "success");
+            } catch(e) {
+                notify("Erreur lors de la génération du PDF.", "error");
+            } finally {
+                document.body.classList.remove('render-print');
+            }
         };
 
         // ---------- EXPORT WORD (.docx natif via docx.js) ----------
@@ -1778,13 +1814,10 @@ ${buildJargonGuide()}`;
         }
 
         function _downloadWord(doc, filename) {
-            docx.Packer.toBlob(doc).then(blob => {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = filename;
-                a.click(); URL.revokeObjectURL(a.href);
-                notify("Document Word généré.", "success");
-            }).catch(e => notify("Erreur Word : "+e.message, "error", 5000));
+            docx.Packer.toBlob(doc)
+                .then(blob => saveBlob(blob, filename))
+                .then(() => notify("Document Word généré.", "success"))
+                .catch(e => notify("Erreur Word : " + e.message, "error", 5000));
         }
 
         // Export par lot : un seul .docx contenant tous les rapports de la liste (filtrée), un par page
