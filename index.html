@@ -103,6 +103,17 @@
             /* Boutons d'action flottants plus compacts */
             .fixed.bottom-4.right-4 { gap: .35rem; bottom: .5rem; right: .5rem; }
             .fixed.bottom-4.right-4 button { padding: 0.55rem 0.7rem; }
+
+            /* PDF/impression sur mobile : rétablir la mise en page « bureau » complète
+               (tableau d'évaluation entier + en-tête non empilé) le temps de la capture. */
+            .render-print, .render-print body { overflow: visible !important; }
+            .render-print #report-container { width: auto !important; max-width: 21cm !important; padding: 2rem !important; overflow: visible !important; }
+            .render-print #view-form > .flex.justify-between { flex-wrap: nowrap !important; }
+            .render-print #view-form > .flex.justify-between > div { width: auto !important; text-align: initial !important; }
+            .render-print .resp-table { display: table !important; width: 100% !important; }
+            .render-print .resp-table tbody { display: table-row-group !important; }
+            .render-print .resp-table tr { display: table-row !important; }
+            .render-print .resp-table td { display: table-cell !important; width: auto !important; border: 1px solid #000 !important; }
         }
 
         /* Cartes mobiles (masquées par défaut ; affichées sur petit écran via la règle ci-dessus) */
@@ -307,7 +318,7 @@
                 <button onclick="window.handleSave()" id="btn-save" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Enregistrer le rapport"><i class="fas fa-save"></i></button>
                 <button onclick="window.exportPDF()" id="btn-pdf" class="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Télécharger en PDF"><i class="fas fa-file-pdf"></i></button>
                 <button onclick="window.exportWord()" id="btn-word" class="bg-sky-700 hover:bg-sky-800 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Télécharger en Word (.docx)"><i class="fas fa-file-word"></i></button>
-                <button onclick="window.print()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Imprimer le rapport"><i class="fas fa-print"></i></button>
+                <button onclick="window.handlePrint()" class="bg-blue-800 hover:bg-blue-700 text-white px-4 py-3 rounded-full font-bold shadow-lg" title="Imprimer le rapport"><i class="fas fa-print"></i></button>
             </div>
         </div>
 
@@ -1728,33 +1739,49 @@ ${buildJargonGuide()}`;
         // ---------- EXPORT PDF ----------
         // Enregistre/partage un fichier : natif (Capacitor) sur mobile, téléchargement classique sinon
         function blobToBase64(blob){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
-        function isNativeApp(){ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+        // Accès aux plugins natifs : d'abord le bundle Capacitor (www/native-entry.js → window.__cap),
+        // sinon le pont natif injecté (window.Capacitor.Plugins).
+        function nativeBridge(){
+            if(window.__cap && window.__cap.isNative) return window.__cap;
+            if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins){
+                return { isNative: true, Filesystem: window.Capacitor.Plugins.Filesystem, Share: window.Capacitor.Plugins.Share, Directory: { Documents:'DOCUMENTS', ExternalStorage:'EXTERNAL_STORAGE', Cache:'CACHE' } };
+            }
+            return null;
+        }
+        function isNativeApp(){ const b = nativeBridge(); return !!(b && b.isNative); }
+        // Enregistre un blob sur mobile (Capacitor) ; renvoie un message décrivant l'emplacement, ou null si échec/non-natif.
+        async function saveBlobNative(blob, filename){
+            const b = nativeBridge();
+            if(!b || !b.Filesystem) return null;
+            const Filesystem = b.Filesystem, Directory = b.Directory || {}, Share = b.Share;
+            const data = await blobToBase64(blob);
+            // 1) Dossier public « Documents » (visible dans l'appli Fichiers → Documents, fiable sur Android récent).
+            try {
+                await Filesystem.writeFile({ path: filename, data, directory: Directory.Documents || 'DOCUMENTS', recursive: true });
+                return "Enregistré dans le dossier Documents du téléphone : " + filename;
+            } catch(e1) {}
+            // 2) Sinon, dossier public « Téléchargements » (fonctionne sur Android ≤ 10).
+            try {
+                await Filesystem.writeFile({ path: 'Download/' + filename, data, directory: Directory.ExternalStorage || 'EXTERNAL_STORAGE', recursive: true });
+                return "Enregistré dans Téléchargements : " + filename;
+            } catch(e2) {}
+            // 3) Dernier repli : cache + panneau de partage (« Enregistrer dans Fichiers / Téléchargements »).
+            try {
+                const w = await Filesystem.writeFile({ path: filename, data, directory: Directory.Cache || 'CACHE', recursive: true });
+                if(Share){
+                    try { await Share.share({ title: filename, files: [w.uri], dialogTitle: 'Enregistrer le rapport' }); return "Choisissez où enregistrer : " + filename; }
+                    catch(e){ try { await Share.share({ title: filename, url: w.uri }); return "Choisissez où enregistrer : " + filename; } catch(_) {} }
+                }
+                return "Fichier prêt : " + filename;
+            } catch(e3) {}
+            return false; // échec complet
+        }
         async function saveBlob(blob, filename){
-            if(isNativeApp() && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem){
-                const Filesystem = window.Capacitor.Plugins.Filesystem;
-                const data = await blobToBase64(blob);
-                // 1) Dossier public « Téléchargements »
-                try {
-                    await Filesystem.writeFile({ path: 'Download/' + filename, data, directory: 'EXTERNAL_STORAGE', recursive: true });
-                    notify("Enregistré dans Téléchargements : " + filename, "success", 7000);
-                    return;
-                } catch(e1) {}
-                // 2) Sinon, dossier public « Documents »
-                try {
-                    await Filesystem.writeFile({ path: filename, data, directory: 'DOCUMENTS', recursive: true });
-                    notify("Enregistré dans Documents : " + filename, "success", 7000);
-                    return;
-                } catch(e2) {}
-                // 3) Dernier repli : cache + panneau de partage
-                try {
-                    const w = await Filesystem.writeFile({ path: filename, data, directory: 'CACHE', recursive: true });
-                    const Share = window.Capacitor.Plugins.Share;
-                    if(Share){
-                        try { await Share.share({ title: filename, files: [w.uri], dialogTitle: 'Enregistrer le rapport' }); }
-                        catch(e){ try { await Share.share({ title: filename, url: w.uri }); } catch(_) { notify("Fichier prêt : " + filename, "info", 6000); } }
-                    } else { notify("Fichier prêt : " + filename, "info", 6000); }
-                    return;
-                } catch(e3) { notify("Échec de l'enregistrement du fichier.", "error", 6000); return; }
+            if(isNativeApp()){
+                const msg = await saveBlobNative(blob, filename);
+                if(msg) notify(msg, "success", 8000);
+                else notify("Échec de l'enregistrement du fichier.", "error", 6000);
+                return !!msg;
             }
             // Navigateur / PC : téléchargement standard
             const a = document.createElement('a');
@@ -1762,6 +1789,38 @@ ${buildJargonGuide()}`;
             a.download = filename;
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            return true;
+        }
+
+        // html2canvas ne sait pas faire passer le texte d'un <textarea> à la ligne : il le rend
+        // sur une seule ligne tronquée. Avant la capture PDF, on remplace chaque <textarea> par un
+        // <div> équivalent (texte qui s'enroule), puis on restaure tout après.
+        function textareasToStatic(root){
+            root.querySelectorAll('textarea').forEach(ta => {
+                const cs = getComputedStyle(ta);
+                const div = document.createElement('div');
+                div.textContent = ta.value || '';
+                div.className = ta.className;
+                div.setAttribute('data-pdf-static', '1');
+                div.style.whiteSpace = 'pre-wrap';
+                div.style.wordBreak = 'break-word';
+                div.style.overflow = 'visible';
+                div.style.width = '100%';
+                div.style.boxSizing = 'border-box';
+                div.style.font = cs.font;
+                div.style.lineHeight = cs.lineHeight;
+                div.style.textAlign = cs.textAlign;
+                div.style.padding = cs.padding;
+                div.style.color = cs.color;
+                div.style.minHeight = cs.minHeight && cs.minHeight !== '0px' ? cs.minHeight : '60px';
+                ta.setAttribute('data-pdf-hidden', '1');
+                ta.style.display = 'none';
+                ta.parentNode.insertBefore(div, ta);
+            });
+        }
+        function restoreTextareas(root){
+            root.querySelectorAll('[data-pdf-static]').forEach(n => n.remove());
+            root.querySelectorAll('[data-pdf-hidden]').forEach(n => { n.style.display = ''; n.removeAttribute('data-pdf-hidden'); });
         }
 
         window.exportPDF = async function() {
@@ -1771,11 +1830,22 @@ ${buildJargonGuide()}`;
             const date = (document.getElementById('input-date').value || '').replace(/[^\w\-]+/g, '_');
             const filename = `Rapport_${teacher}${date ? '_' + date : ''}.pdf`;
             document.body.classList.add('render-print');
+            textareasToStatic(el); // texte des observations/synthèse rendu sur plusieurs lignes
+            // Sur mobile, on force un rendu « bureau » (largeur A4 ≈ 820px) sinon html2canvas
+            // capture à la largeur étroite du téléphone et le tableau d'évaluation est tronqué.
+            const renderWidth = Math.max(820, document.documentElement.clientWidth);
+            // La WebView Android limite la hauteur max d'un canvas : à scale 2 un rapport de
+            // plusieurs pages dépasse cette limite et n'est capturé qu'en partie (un fragment).
+            // On adapte donc l'échelle pour que la hauteur du canvas reste sous ~7000 px.
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const contentHeight = el.scrollHeight || 3000;
+            const maxCanvasPx = 7000; // marge sous la limite de hauteur de canvas des WebView Android (~8192 px)
+            let scale = isNativeApp() ? Math.min(1.5, Math.max(1, maxCanvasPx / contentHeight)) : 2;
             const opt = {
                 margin: [10, 10, 12, 10],
                 filename: filename,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { scale, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: renderWidth, width: renderWidth },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak: { mode: ['css', 'legacy'] }
             };
@@ -1784,15 +1854,27 @@ ${buildJargonGuide()}`;
                 const worker = html2pdf().set(opt).from(el);
                 if(isNativeApp()){
                     const blob = await worker.outputPdf('blob');
-                    await saveBlob(blob, filename);
+                    await saveBlob(blob, filename); // saveBlob notifie déjà l'emplacement
                 } else {
                     await worker.save();
+                    notify("PDF généré.", "success");
                 }
-                notify("PDF généré.", "success");
             } catch(e) {
                 notify("Erreur lors de la génération du PDF.", "error");
             } finally {
+                restoreTextareas(el);
                 document.body.classList.remove('render-print');
+            }
+        };
+
+        // Impression : window.print() ne fonctionne pas dans la WebView Android.
+        // Sur mobile (appli native), on génère un PDF que l'utilisateur pourra ouvrir et imprimer.
+        window.handlePrint = function() {
+            if(isNativeApp()){
+                notify("L'impression directe n'est pas disponible sur mobile : génération d'un PDF à imprimer…", "info", 6000);
+                window.exportPDF();
+            } else {
+                window.print();
             }
         };
 
@@ -1829,7 +1911,7 @@ ${buildJargonGuide()}`;
         function _downloadWord(doc, filename) {
             docx.Packer.toBlob(doc)
                 .then(blob => saveBlob(blob, filename))
-                .then(() => notify("Document Word généré.", "success"))
+                .then(ok => { if(ok && !isNativeApp()) notify("Document Word généré.", "success"); })
                 .catch(e => notify("Erreur Word : " + e.message, "error", 5000));
         }
 

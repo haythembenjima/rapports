@@ -51,6 +51,9 @@ jobs:
       - name: Prepare web assets (www/)
         run: node scripts/prepare-www.mjs
 
+      - name: Bundle native plugins (Capacitor) into www/native-entry.js
+        run: npx esbuild scripts/native-entry.js --bundle --format=iife --outfile=www/native-entry.js
+
       - name: Add Android platform (Capacitor)
         run: npx cap add android
 
@@ -60,9 +63,9 @@ jobs:
       - name: Generate app icon & splash
         run: npx @capacitor/assets generate --android
 
-      - name: Add permissions to manifest (caméra + stockage)
+      - name: Add permissions to manifest (caméra + stockage) + legacy storage
         run: |
-          node -e "const fs=require('fs');const f='android/app/src/main/AndroidManifest.xml';let s=fs.readFileSync(f,'utf8');let add='';if(!s.includes('android.permission.CAMERA'))add+='<uses-permission android:name=\"android.permission.CAMERA\"/>\n    <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>\n    ';if(!s.includes('WRITE_EXTERNAL_STORAGE'))add+='<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" android:maxSdkVersion=\"29\"/>\n    ';if(add){s=s.replace('<application',add+'\n    <application');fs.writeFileSync(f,s);console.log('permissions ajoutées');}else{console.log('déjà présentes');}"
+          node -e "const fs=require('fs');const f='android/app/src/main/AndroidManifest.xml';let s=fs.readFileSync(f,'utf8');let add='';if(!s.includes('android.permission.CAMERA'))add+='<uses-permission android:name=\"android.permission.CAMERA\"/>\n    <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>\n    ';if(!s.includes('WRITE_EXTERNAL_STORAGE'))add+='<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" android:maxSdkVersion=\"29\"/>\n    ';if(add){s=s.replace('<application',add+'\n    <application');console.log('permissions ajoutées');}else{console.log('permissions déjà présentes');}if(!s.includes('requestLegacyExternalStorage')){s=s.replace('<application','<application android:requestLegacyExternalStorage=\"true\"');console.log('requestLegacyExternalStorage ajouté');}fs.writeFileSync(f,s);"
 
       - name: Build debug APK
         run: |
