@@ -1305,21 +1305,27 @@ ${buildJargonGuide()}`;
         };
         async function runOcrToText(imgFiles, onProgress){
             const T = await ensureTesseract();
-            const opts = { logger: m => { if(onProgress) onProgress(m); } };
+            const opts = {
+                logger: m => { if(onProgress) onProgress(m); },
+                // En WebView Android, la mise en cache IndexedDB de la langue peut rester bloquée :
+                // on la désactive pour charger la langue directement à chaque fois.
+                cacheMethod: 'none',
+                gzip: true
+            };
             if(_ocrBase){ opts.workerPath = _ocrBase + 'worker.min.js'; opts.corePath = _ocrBase; opts.langPath = _ocrBase; }
             // Un seul worker réutilisé pour toutes les images, puis libéré (évite les fuites mémoire).
-            let worker = null;
-            try { worker = await withTimeout(T.createWorker('fra', 1, opts), 120000, 'OCR: initialisation trop longue'); } catch(e) { worker = null; }
+            // Si l'initialisation (chargement de la langue) traîne, on abandonne avec un message clair
+            // plutôt que de rester figé indéfiniment.
+            const worker = await withTimeout(T.createWorker('fra', 1, opts), 45000, "Chargement de la langue trop long");
             let out = '';
             try {
                 for(let i = 0; i < imgFiles.length; i++){
                     if(onProgress) onProgress({ status: 'recognizing text', progress: 0, _img: i });
                     const input = await downscaleForOcr(imgFiles[i]);
-                    const rec = worker ? worker.recognize(input) : T.recognize(input, 'fra', opts);
-                    const { data } = await withTimeout(rec, 120000, 'OCR: image trop longue à analyser');
+                    const { data } = await withTimeout(worker.recognize(input), 60000, 'Image trop longue à analyser');
                     out += (out ? '\n' : '') + (data.text || '');
                 }
-            } finally { if(worker){ try { await worker.terminate(); } catch(_) {} } }
+            } finally { try { await worker.terminate(); } catch(_) {} }
             return out.trim();
         }
 
