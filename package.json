@@ -1,7 +1,7 @@
 {
   "name": "rapport-inspection",
   "productName": "Rapport Inspection",
-  "version": "1.14.6",
+  "version": "1.14.7",
   "description": "Application de rédaction des rapports d'évaluation d'inspection pédagogique (discipline Gestion).",
   "author": "haythembenjima",
   "license": "MIT",

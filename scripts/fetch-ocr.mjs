@@ -21,6 +21,9 @@ const files = [
   [`https://cdn.jsdelivr.net/npm/tesseract.js-core@${CORE}/tesseract-core-simd-lstm.wasm.js`, 'tesseract-core-simd-lstm.wasm.js'],
   [`https://cdn.jsdelivr.net/npm/tesseract.js-core@${CORE}/tesseract-core-simd-lstm.wasm`, 'tesseract-core-simd-lstm.wasm'],
   [`https://tessdata.projectnaptha.com/${LANG}/fra.traineddata.gz`, 'fra.traineddata.gz'],
+  // Version NON compressée du modèle « fast » : évite l'étape de décompression
+  // (qui peut rester bloquée dans la WebView Android à cause des en-têtes .gz).
+  [`https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/fra.traineddata`, 'fra.traineddata'],
   [`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS}/pdf.min.js`, 'pdf.min.js'],
   [`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS}/pdf.worker.min.js`, 'pdf.worker.min.js'],
 ];

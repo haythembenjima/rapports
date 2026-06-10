@@ -1309,10 +1309,16 @@ ${buildJargonGuide()}`;
                 logger: m => { if(onProgress) onProgress(m); },
                 // En WebView Android, la mise en cache IndexedDB de la langue peut rester bloquée :
                 // on la désactive pour charger la langue directement à chaque fois.
-                cacheMethod: 'none',
-                gzip: true
+                cacheMethod: 'none'
             };
-            if(_ocrBase){ opts.workerPath = _ocrBase + 'worker.min.js'; opts.corePath = _ocrBase; opts.langPath = _ocrBase; }
+            if(_ocrBase){
+                opts.workerPath = _ocrBase + 'worker.min.js';
+                opts.corePath = _ocrBase;
+                opts.langPath = _ocrBase;
+                opts.gzip = false; // on utilise fra.traineddata NON compressé (pas de décompression qui coince)
+            } else {
+                opts.gzip = true;  // modèle .gz depuis le CDN
+            }
             // Un seul worker réutilisé pour toutes les images, puis libéré (évite les fuites mémoire).
             // Si l'initialisation (chargement de la langue) traîne, on abandonne avec un message clair
             // plutôt que de rester figé indéfiniment.
@@ -1349,6 +1355,13 @@ ${buildJargonGuide()}`;
                 notify("Texte reconnu. Relisez/corrigez si besoin — analyse en cours…", "success", 5000);
                 window.analyzeNotesOffline();
             } catch(e) {
+                // L'OCR sur l'appareil a échoué/expiré : si on a une connexion, on bascule
+                // automatiquement vers l'IA en ligne (Gemini) pour ne pas bloquer la création du rapport.
+                if(navigator.onLine){
+                    notify("OCR hors-ligne indisponible — passage à l'IA en ligne…", "info", 6000);
+                    if(btn){ btn.disabled = false; btn.innerHTML = old; }
+                    try { await runOnlineAI(imgFiles); return; } catch(_) {}
+                }
                 notify("OCR hors-ligne interrompu (" + (e && e.message ? e.message : 'erreur') + "). Saisissez/collez le texte des notes ci-dessus, puis cliquez sur « Analyser ».", "warn", 10000);
             } finally {
                 if(btn){ btn.disabled = false; btn.innerHTML = old; }
