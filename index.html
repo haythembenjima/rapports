@@ -162,7 +162,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.15.0</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.15.1</span>
         </div>
     </div>
 
@@ -378,10 +378,45 @@
                         <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="window.handleImportFile(event)">
                     </div>
                 </div>
+                <!-- RECHERCHE AVANCÉE -->
+                <div class="px-4 py-2 border-b bg-gray-50 flex flex-wrap items-end gap-3 text-xs">
+                    <label class="flex flex-col gap-0.5"><span class="text-gray-500 font-bold">Nom</span>
+                        <input type="text" id="f-teacher" oninput="window.renderHistory()" placeholder="Enseignant(e)…" class="border rounded px-2 py-1 w-36 focus:outline-none focus:ring focus:ring-blue-200"></label>
+                    <label class="flex flex-col gap-0.5"><span class="text-gray-500 font-bold">Note /20</span>
+                        <span class="flex items-center gap-1">
+                            <input type="number" id="f-score-min" min="0" max="20" step="0.5" oninput="window.renderHistory()" placeholder="min" class="border rounded px-1 py-1 w-14 focus:outline-none focus:ring focus:ring-blue-200">
+                            <span class="text-gray-400">—</span>
+                            <input type="number" id="f-score-max" min="0" max="20" step="0.5" oninput="window.renderHistory()" placeholder="max" class="border rounded px-1 py-1 w-14 focus:outline-none focus:ring focus:ring-blue-200">
+                        </span></label>
+                    <label class="flex flex-col gap-0.5"><span class="text-gray-500 font-bold">Visite entre</span>
+                        <span class="flex items-center gap-1">
+                            <input type="date" id="f-visit-from" onchange="window.renderHistory()" class="border rounded px-1 py-1 focus:outline-none focus:ring focus:ring-blue-200">
+                            <span class="text-gray-400">et</span>
+                            <input type="date" id="f-visit-to" onchange="window.renderHistory()" class="border rounded px-1 py-1 focus:outline-none focus:ring focus:ring-blue-200">
+                        </span></label>
+                    <label class="flex flex-col gap-0.5"><span class="text-gray-500 font-bold">Recrutement entre</span>
+                        <span class="flex items-center gap-1">
+                            <input type="date" id="f-recr-from" onchange="window.renderHistory()" class="border rounded px-1 py-1 focus:outline-none focus:ring focus:ring-blue-200">
+                            <span class="text-gray-400">et</span>
+                            <input type="date" id="f-recr-to" onchange="window.renderHistory()" class="border rounded px-1 py-1 focus:outline-none focus:ring focus:ring-blue-200">
+                        </span></label>
+                    <label class="flex flex-col gap-0.5"><span class="text-gray-500 font-bold">Trier par</span>
+                        <select id="f-sort" onchange="window.renderHistory()" class="border rounded px-2 py-1 focus:outline-none focus:ring focus:ring-blue-200">
+                            <option value="recent">Plus récents</option>
+                            <option value="name">Nom (A → Z)</option>
+                            <option value="score-desc">Note (haute → basse)</option>
+                            <option value="score-asc">Note (basse → haute)</option>
+                            <option value="visit">Date de visite</option>
+                            <option value="lastvisit">Dernière visite précédente</option>
+                            <option value="recrutement">Date de recrutement</option>
+                        </select></label>
+                    <button onclick="window.resetHistoryFilters()" class="border rounded px-2 py-1 bg-white hover:bg-gray-100 text-gray-600 font-bold" title="Effacer les filtres"><i class="fas fa-eraser"></i> Réinitialiser</button>
+                    <span id="f-count" class="text-gray-400 ml-auto"></span>
+                </div>
                 <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
-                        <tr><th class="p-3 border-b">Enseignant</th><th class="p-3 border-b">Établissement</th><th class="p-3 border-b">Date</th><th class="p-3 border-b">Note</th><th class="p-3 border-b text-center" id="col-actions-header">Actions</th></tr>
+                        <tr><th class="p-3 border-b">Enseignant</th><th class="p-3 border-b">Établissement</th><th class="p-3 border-b">Visite</th><th class="p-3 border-b">Visite préc.</th><th class="p-3 border-b">Recrutement</th><th class="p-3 border-b">Note</th><th class="p-3 border-b text-center" id="col-actions-header">Actions</th></tr>
                     </thead>
                     <tbody id="history-body"></tbody>
                 </table>
@@ -432,7 +467,7 @@
         const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
         // ---------- MISE À JOUR AUTOMATIQUE (version Windows/Electron) ----------
-        const APP_VERSION = '1.15.0';
+        const APP_VERSION = '1.15.1';
         const REPO_RELEASES_API = 'https://api.github.com/repos/haythembenjima/rapports/releases/latest';
         function isNewerVersion(remote, local){
             const a = String(remote).split('.').map(n => parseInt(n) || 0);
@@ -1895,14 +1930,57 @@ ${buildJargonGuide()}`;
             }
         };
 
+        // Lit un champ du formulaire enregistré dans un rapport (nouveau format form.fields, ancien fields)
+        function getRF(r, id){ return (r.form && r.form.fields && r.form.fields[id]) || (r.fields && r.fields[id]) || ''; }
+        // Date souple : accepte « JJ/MM/AAAA », « AAAA-MM-JJ » (et « JJ-MM-AAAA ») -> timestamp ou null
+        function parseFlexDate(s){
+            s = String(s || '').trim(); if(!s) return null;
+            let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+            if(m) return new Date(+m[1], +m[2]-1, +m[3]).getTime();
+            m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if(m) return new Date(+m[3], +m[2]-1, +m[1]).getTime();
+            return null;
+        }
+        const fVal = id => (document.getElementById(id)?.value || '').trim();
+        window.resetHistoryFilters = function(){
+            ['history-search','f-teacher','f-score-min','f-score-max','f-visit-from','f-visit-to','f-recr-from','f-recr-to'].forEach(id => { const e = document.getElementById(id); if(e) e.value = ''; });
+            const s = document.getElementById('f-sort'); if(s) s.value = 'recent';
+            window.renderHistory();
+        };
+
         function getFilteredReports() {
-            const search = (document.getElementById('history-search')?.value || '').toLowerCase();
-            return currentReports.filter(d =>
-                !search ||
-                (d.teacher||'').toLowerCase().includes(search) ||
-                (d.establishment||'').toLowerCase().includes(search) ||
-                (d.date||'').toLowerCase().includes(search)
-            );
+            const search = fVal('history-search').toLowerCase();
+            const name = fVal('f-teacher').toLowerCase();
+            const sMin = parseFloat(fVal('f-score-min')), sMax = parseFloat(fVal('f-score-max'));
+            const vFrom = parseFlexDate(fVal('f-visit-from')), vTo = parseFlexDate(fVal('f-visit-to'));
+            const rFrom = parseFlexDate(fVal('f-recr-from')), rTo = parseFlexDate(fVal('f-recr-to'));
+            let list = currentReports.filter(d => {
+                if(search && !((d.teacher||'').toLowerCase().includes(search) ||
+                               (d.establishment||'').toLowerCase().includes(search) ||
+                               (d.date||'').toLowerCase().includes(search))) return false;
+                if(name && !(d.teacher||'').toLowerCase().includes(name)) return false;
+                const sc = parseFloat(d.score);
+                if(!isNaN(sMin) && !(sc >= sMin)) return false;
+                if(!isNaN(sMax) && !(sc <= sMax)) return false;
+                const vd = parseFlexDate(d.date);
+                if(vFrom != null && !(vd != null && vd >= vFrom)) return false;
+                if(vTo != null && !(vd != null && vd <= vTo)) return false;
+                const rd = parseFlexDate(getRF(d, 'input-recrutement'));
+                if(rFrom != null && !(rd != null && rd >= rFrom)) return false;
+                if(rTo != null && !(rd != null && rd <= rTo)) return false;
+                return true;
+            });
+            const sort = document.getElementById('f-sort')?.value || 'recent';
+            const ts = r => r.timestamp && r.timestamp.toDate ? r.timestamp.toDate().getTime() : (Number(r.timestamp) || 0);
+            const cmpNullLast = (a, b, dir) => (a == null ? 1 : (b == null ? -1 : dir * (a - b)));
+            if(sort === 'name') list.sort((a, b) => String(a.teacher||'').localeCompare(String(b.teacher||''), 'fr'));
+            else if(sort === 'score-desc') list.sort((a, b) => cmpNullLast(isNaN(parseFloat(a.score)) ? null : parseFloat(a.score), isNaN(parseFloat(b.score)) ? null : parseFloat(b.score), -1));
+            else if(sort === 'score-asc') list.sort((a, b) => cmpNullLast(isNaN(parseFloat(a.score)) ? null : parseFloat(a.score), isNaN(parseFloat(b.score)) ? null : parseFloat(b.score), 1));
+            else if(sort === 'visit') list.sort((a, b) => cmpNullLast(parseFlexDate(a.date), parseFlexDate(b.date), -1));
+            else if(sort === 'lastvisit') list.sort((a, b) => cmpNullLast(parseFlexDate(getRF(a, 'input-last-visit')), parseFlexDate(getRF(b, 'input-last-visit')), -1));
+            else if(sort === 'recrutement') list.sort((a, b) => cmpNullLast(parseFlexDate(getRF(a, 'input-recrutement')), parseFlexDate(getRF(b, 'input-recrutement')), -1));
+            else list.sort((a, b) => ts(b) - ts(a));
+            return list;
         }
 
         window.renderHistory = function() {
@@ -1912,7 +1990,9 @@ ${buildJargonGuide()}`;
                 h += `<tr class="hover:bg-gray-50">
                     <td class="p-2 border-b">${escapeHtml(d.teacher) || 'N/A'}</td>
                     <td class="p-2 border-b">${escapeHtml(d.establishment) || '-'}</td>
-                    <td class="p-2 border-b">${escapeHtml(d.date) || 'N/A'}</td>
+                    <td class="p-2 border-b whitespace-nowrap">${escapeHtml(d.date) || 'N/A'}</td>
+                    <td class="p-2 border-b whitespace-nowrap text-gray-500">${escapeHtml(getRF(d, 'input-last-visit')) || '-'}</td>
+                    <td class="p-2 border-b whitespace-nowrap text-gray-500">${escapeHtml(getRF(d, 'input-recrutement')) || '-'}</td>
                     <td class="p-2 border-b font-bold">${escapeHtml(d.score) || '-'}</td>
                     <td class="p-2 border-b text-center" id="col-actions-${d.id}">
                         <button class="text-sky-700 mr-2" onclick="window.exportWordFromHistory('${d.id}')" title="Exporter en Word (.docx)"><i class="fas fa-file-word"></i></button>
@@ -1922,7 +2002,9 @@ ${buildJargonGuide()}`;
                 </tr>`;
             });
             const el = document.getElementById('history-body');
-            if(el) el.innerHTML = h || '<tr><td colspan="5" class="p-4 text-center text-gray-500">Aucun rapport.</td></tr>';
+            if(el) el.innerHTML = h || '<tr><td colspan="7" class="p-4 text-center text-gray-500">Aucun rapport ne correspond aux critères.</td></tr>';
+            const c = document.getElementById('f-count');
+            if(c) c.innerText = list.length + ' / ' + currentReports.length + ' rapport' + (currentReports.length > 1 ? 's' : '');
         };
 
         function escapeHtml(s) {
