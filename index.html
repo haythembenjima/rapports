@@ -165,7 +165,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.15.4</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.15.5</span>
         </div>
     </div>
 
@@ -491,7 +491,7 @@
     <!-- MAIN LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, getDoc, setDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, getDoc, setDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         // (SDK Gemini retiré : l'IA passe désormais par un appel REST fetch, plus robuste en WebView.)
 
@@ -515,8 +515,8 @@
         const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
         // ---------- MISE À JOUR AUTOMATIQUE (Windows + Android) ----------
-        const APP_VERSION = '1.15.4';          // version web/Windows (tags v*)
-        const ANDROID_VERSION = '1.7.15';      // version APK Android (tags android-v*)
+        const APP_VERSION = '1.15.5';          // version web/Windows (tags v*)
+        const ANDROID_VERSION = '1.7.16';      // version APK Android (tags android-v*)
         const REPO_RELEASES_API = 'https://api.github.com/repos/haythembenjima/rapports/releases/latest';
         const REPO_RELEASES_LIST = 'https://api.github.com/repos/haythembenjima/rapports/releases?per_page=30';
         function isNewerVersion(remote, local){
@@ -707,7 +707,10 @@
             try {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
-                db = getFirestore(app);
+                // Long-polling auto : le canal par défaut de Firestore (WebChannel) est souvent
+                // bloqué dans les WebView Android (Capacitor) -> l'écouteur ne recevait JAMAIS les
+                // données et l'app retombait sur les rapports locaux (synchro invisible sur mobile).
+                db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
                 // Persistance locale : la session du compte survit à la fermeture de l'app.
                 try { await setPersistence(auth, browserLocalPersistence); } catch(_) {}
 
@@ -2044,7 +2047,7 @@ ${buildJargonGuide()}`;
             }, (e) => {
                 if(!currentUser || currentUser.uid !== uid) return;   // erreur d'une session périmée : ignorer
                 console.error("Snapshot error:", e);
-                notify("Synchronisation cloud indisponible — affichage des rapports locaux.", "warn", 5000);
+                notify("Synchronisation cloud indisponible (" + (e && e.code ? e.code : 'réseau') + ") — affichage des rapports locaux.", "warn", 7000);
                 loadLocalReports();
             });
         }
