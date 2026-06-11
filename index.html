@@ -162,7 +162,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.14.15</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.14.16</span>
         </div>
     </div>
 
@@ -1218,10 +1218,25 @@ Données :\n${ctx}`;
             if(wrap) wrap.classList.toggle('hidden', !!online);
         };
 
+        // Libellés canoniques des boutons de chargement (notes manuscrites) : on les restaure
+        // toujours à partir de cette table, jamais d'un innerHTML capturé « au vol » (qui pouvait
+        // figer le spinner « Lecture IA… / Reconnaissance… » si un traitement était interrompu).
+        const HW_BTN_LABELS = {
+            'btn-photo': '<i class="fas fa-camera"></i> Prendre une photo',
+            'btn-handwritten': '<i class="fas fa-images"></i> Charger des images',
+            'btn-pdf-import': '<i class="fas fa-file-pdf"></i> Charger un PDF',
+            'header-add-file-btn': '<i class="fas fa-paperclip"></i> Fichier'
+        };
+        function resetHandwrittenButtons(){
+            for(const id in HW_BTN_LABELS){
+                const b = document.getElementById(id);
+                if(b){ b.disabled = false; b.innerHTML = HW_BTN_LABELS[id]; }
+            }
+        }
+
         // ----- Mode EN LIGNE (Gemini multimodal) -----
         async function runOnlineAI(imgFiles) {
             const btn = document.getElementById('btn-handwritten');
-            const old = btn ? btn.innerHTML : '';
             if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lecture IA…'; }
             try {
                 const imgs = await Promise.all(imgFiles.map(f => new Promise((res, rej) => {
@@ -1261,7 +1276,7 @@ ${buildJargonGuide()}`;
             } catch(e) {
                 notify("Erreur IA : " + (e?.message || "vérifiez votre clé API ou passez en mode hors-ligne"), "error", 8000);
             } finally {
-                if(btn){ btn.disabled = false; btn.innerHTML = old; }
+                resetHandwrittenButtons();
             }
         }
 
@@ -1385,7 +1400,7 @@ ${buildJargonGuide()}`;
         async function runOfflineOCR(imgFiles){
             const cb = document.getElementById('ai-mode-online'); if(cb) cb.checked = false; window.toggleAiMode();
             const ta = document.getElementById('offline-notes');
-            const btn = document.getElementById('btn-handwritten'); const old = btn ? btn.innerHTML : '';
+            const btn = document.getElementById('btn-handwritten');
             if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reconnaissance…'; }
             const total = imgFiles.length;
             try {
@@ -1407,7 +1422,7 @@ ${buildJargonGuide()}`;
                 if(!unreliable && ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
                 if(unreliable && navigator.onLine){
                     notify("Texte peu fiable (écriture manuscrite ?). Passage à l'IA en ligne pour un meilleur résultat…", "info", 7000);
-                    if(btn){ btn.disabled = false; btn.innerHTML = old; }
+                    resetHandwrittenButtons();
                     try { await runOnlineAI(imgFiles); return; } catch(_) {}
                 }
                 if(unreliable){
@@ -1421,12 +1436,12 @@ ${buildJargonGuide()}`;
                 // automatiquement vers l'IA en ligne (Gemini) pour ne pas bloquer la création du rapport.
                 if(navigator.onLine){
                     notify("OCR hors-ligne indisponible — passage à l'IA en ligne…", "info", 6000);
-                    if(btn){ btn.disabled = false; btn.innerHTML = old; }
+                    resetHandwrittenButtons();
                     try { await runOnlineAI(imgFiles); return; } catch(_) {}
                 }
                 notify("OCR hors-ligne interrompu (" + (e && e.message ? e.message : 'erreur') + "). Saisissez/collez le texte des notes ci-dessus, puis cliquez sur « Analyser ».", "warn", 10000);
             } finally {
-                if(btn){ btn.disabled = false; btn.innerHTML = old; }
+                resetHandwrittenButtons();
             }
         }
 
@@ -1681,6 +1696,8 @@ ${buildJargonGuide()}`;
             document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
             document.querySelectorAll('[id^="print-val-"]').forEach(p => p.innerText = '-');
             gridData.forEach((c, idx) => { const t = document.getElementById(`obs-cat-${idx}`); if(t) t.value=''; });
+            const offlineTa = document.getElementById('offline-notes'); if(offlineTa) offlineTa.value = '';
+            resetHandwrittenButtons();
             currentEditingId = null;
             window.resetAutoScore();
             window.refreshMobileCards && window.refreshMobileCards();
