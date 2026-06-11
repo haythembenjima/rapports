@@ -11,14 +11,6 @@
     <!-- Export Word (.docx natif) -->
     <script src="https://cdn.jsdelivr.net/npm/docx@9.0.2/build/index.umd.js"></script>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "@google/generative-ai": "https://esm.run/@google/generative-ai"
-        }
-      }
-    </script>
-
     <style>
         body { font-family: "Times New Roman", Times, serif; background-color: #f3f4f6; }
         .scale-btn:checked + label { background-color: #3b82f6; color: white; border-color: #3b82f6; }
@@ -384,7 +376,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, getDoc, setDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { GoogleGenerativeAI } from "@google/generative-ai";
+        // (SDK Gemini retiré : l'IA passe désormais par un appel REST fetch, plus robuste en WebView.)
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -403,7 +395,7 @@
         };
 
         // Liste de modèles Gemini, du plus récent au plus stable (fallback automatique)
-        const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+        const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
         let db, auth, currentUser;
         let currentEditingId = null;
@@ -1064,20 +1056,39 @@
             notify("Clé API Gemini effacée.", "info");
         };
 
-        // Tente chaque modèle de la liste jusqu'à réussite
-        async function geminiGenerate(prompt) {
+        // Appel direct de l'API Gemini en REST (fetch) — plus fiable en WebView que le SDK ESM
+        // (qui dépend d'un import de module CDN pouvant échouer). Gère le repli de modèles et
+        // remonte un message d'erreur clair (clé, quota, modèle…).
+        async function geminiREST(parts) {
             const key = await getGeminiKey();
-            const ai = new GoogleGenerativeAI(key);
+            const restParts = parts.map(p => (typeof p === 'string')
+                ? { text: p }
+                : { inline_data: { mime_type: p.inlineData.mimeType, data: p.inlineData.data } });
+            const body = JSON.stringify({ contents: [{ role: 'user', parts: restParts }], generationConfig: { temperature: 0.4 } });
             let lastErr;
-            for(const modelName of GEMINI_MODELS) {
+            for(const model of GEMINI_MODELS) {
                 try {
-                    const m = ai.getGenerativeModel({ model: modelName });
-                    const res = await m.generateContent(prompt);
-                    return res.response.text().trim();
-                } catch(e) { lastErr = e; }
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+                    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+                    if(!r.ok) {
+                        let detail = ''; try { const j = await r.json(); detail = j?.error?.message || ''; } catch(_) {}
+                        if(r.status === 400 && /api key not valid|api_key_invalid/i.test(detail)) throw new Error("Clé API Gemini invalide. Effacez-la (menu) et saisissez-en une valide.");
+                        if(r.status === 429) { lastErr = new Error("Quota Gemini dépassé. Réessayez plus tard ou utilisez une autre clé."); continue; }
+                        lastErr = new Error(`Gemini ${r.status} (${model})${detail ? ' : ' + detail.slice(0,140) : ''}`);
+                        continue;
+                    }
+                    const j = await r.json();
+                    const cand = j?.candidates?.[0];
+                    const text = (cand?.content?.parts || []).map(p => p.text || '').join('').trim();
+                    if(text) return text;
+                    const block = j?.promptFeedback?.blockReason || cand?.finishReason;
+                    lastErr = new Error("Réponse IA vide" + (block ? ` (${block})` : '') + ".");
+                } catch(e) { lastErr = e; if(/Clé API/.test(e.message)) break; }
             }
             throw lastErr || new Error("Échec de génération");
         }
+        async function geminiGenerate(prompt) { return geminiREST([prompt]); }
+        async function geminiGenerateParts(parts) { return geminiREST(parts); }
 
         window.improveDescription = async function() {
             const t = document.getElementById('desc-lesson');
@@ -1127,20 +1138,7 @@ Données :\n${ctx}`;
         };
 
         // ---------- IA MULTIMODALE : NOTES MANUSCRITES -> RAPPORT ----------
-        // Appel Gemini avec des parts mixtes (texte + images)
-        async function geminiGenerateParts(parts) {
-            const key = await getGeminiKey();
-            const ai = new GoogleGenerativeAI(key);
-            let lastErr;
-            for(const modelName of GEMINI_MODELS) {
-                try {
-                    const m = ai.getGenerativeModel({ model: modelName });
-                    const res = await m.generateContent(parts);
-                    return res.response.text().trim();
-                } catch(e) { lastErr = e; }
-            }
-            throw lastErr || new Error("Échec de génération");
-        }
+        // (geminiGenerateParts est défini plus haut : appel REST avec parts mixtes texte + images)
 
         // Construit un guide de jargon (extrait de la banque) pour orienter le style de l'IA
         function buildJargonGuide() {
