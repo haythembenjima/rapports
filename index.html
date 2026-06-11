@@ -165,7 +165,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.15.2</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.15.3</span>
         </div>
     </div>
 
@@ -173,6 +173,18 @@
     <div id="local-mode-alert" class="max-w-[21cm] mx-auto hidden bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 text-sm no-print mt-4">
         <p class="font-bold"><i class="fas fa-wifi"></i> Mode Hors Ligne</p>
         <p>Les données sont enregistrées uniquement sur cet appareil (navigateur).</p>
+    </div>
+
+    <!-- MODALE DE CONFIRMATION (remplace confirm() natif, qui casse le focus clavier
+         dans Electron/WebView : après le dialogue, impossible d'écrire dans les champs) -->
+    <div id="confirm-modal" class="no-print hidden fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4 font-sans">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm p-5">
+            <p id="confirm-message" class="text-sm text-gray-800 mb-4 whitespace-pre-line"></p>
+            <div class="flex gap-2 justify-end">
+                <button id="confirm-cancel" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded font-bold text-sm">Annuler</button>
+                <button id="confirm-ok" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm">Confirmer</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODALE COMPTE (connexion / inscription) -->
@@ -503,7 +515,7 @@
         const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
         // ---------- MISE À JOUR AUTOMATIQUE (version Windows/Electron) ----------
-        const APP_VERSION = '1.15.2';
+        const APP_VERSION = '1.15.3';
         const REPO_RELEASES_API = 'https://api.github.com/repos/haythembenjima/rapports/releases/latest';
         function isNewerVersion(remote, local){
             const a = String(remote).split('.').map(n => parseInt(n) || 0);
@@ -703,6 +715,23 @@
             setTimeout(() => { if(!connected) enterLocalMode(); }, 3000);
         }
 
+        // Confirmation intégrée à la page (Promise<boolean>). Ne jamais utiliser confirm() natif :
+        // dans Electron/WebView il fait perdre le focus clavier (curseur invisible, saisie impossible).
+        function appConfirm(message){
+            return new Promise(res => {
+                const m = document.getElementById('confirm-modal');
+                const msg = document.getElementById('confirm-message');
+                const ok = document.getElementById('confirm-ok');
+                const ko = document.getElementById('confirm-cancel');
+                if(!m || !msg || !ok || !ko){ res(window.confirm(message)); return; }
+                msg.innerText = message;
+                m.classList.remove('hidden');
+                const done = v => { m.classList.add('hidden'); ok.onclick = null; ko.onclick = null; res(v); };
+                ok.onclick = () => done(true);
+                ko.onclick = () => done(false);
+            });
+        }
+
         // ---------- COMPTE UTILISATEUR (synchronisation PC / Android) ----------
         // Met à jour l'indicateur d'état et le bouton « Compte » selon la session.
         function updateAccountUI(user) {
@@ -749,14 +778,16 @@
                 pass: document.getElementById('account-password-input')?.value || ''
             };
         }
-        // Copie les rapports actuellement visibles (locaux/anonymes) dans le compte, une seule fois par compte.
-        async function migrateReportsToAccount(user) {
+        // Copie les rapports de l'appareil (locaux/anonymes) dans le compte, une seule fois par compte.
+        // « deviceReports » doit être capturé AVANT la connexion : après, currentReports contient
+        // déjà les rapports du compte (l'écouteur a changé) et on importerait des doublons.
+        async function migrateReportsToAccount(user, deviceReports) {
             try {
                 if(!user || user.isAnonymous) return;
                 if(localStorage.getItem('migrated_' + user.uid) === '1') return;
-                const toMigrate = currentReports.filter(r => r && (r.form || r.fields || r.teacher));
+                const toMigrate = (deviceReports || []).filter(r => r && (r.form || r.fields || r.teacher));
                 if(!toMigrate.length){ localStorage.setItem('migrated_' + user.uid, '1'); return; }
-                if(!confirm(`Importer les ${toMigrate.length} rapport(s) de cet appareil dans votre compte ${user.email} ? (ils seront synchronisés sur tous vos appareils)`)){
+                if(!await appConfirm(`Importer les ${toMigrate.length} rapport(s) de cet appareil dans votre compte ${user.email} ? (ils seront synchronisés sur tous vos appareils)`)){
                     localStorage.setItem('migrated_' + user.uid, '1'); return;
                 }
                 const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'inspections');
@@ -773,21 +804,23 @@
         window.doSignIn = async function(){
             const { email, pass } = accountInputs();
             if(!email || !pass){ accountError("Saisissez votre e-mail et votre mot de passe."); return; }
+            const deviceReports = currentReports.slice();   // rapports de l'appareil, avant connexion
             try {
                 const cred = await signInWithEmailAndPassword(auth, email, pass);
                 window.closeAccount();
                 notify("Connecté. Vos rapports se synchronisent.", "success");
-                await migrateReportsToAccount(cred.user);
+                await migrateReportsToAccount(cred.user, deviceReports);
             } catch(e){ accountError(authErrorMessage(e.code || e.message)); }
         };
         window.doSignUp = async function(){
             const { email, pass } = accountInputs();
             if(!email || !pass){ accountError("Saisissez un e-mail et un mot de passe (6 caractères min)."); return; }
+            const deviceReports = currentReports.slice();   // rapports de l'appareil, avant connexion
             try {
                 const cred = await createUserWithEmailAndPassword(auth, email, pass);
                 window.closeAccount();
                 notify("Compte créé. Vos rapports se synchronisent désormais.", "success", 6000);
-                await migrateReportsToAccount(cred.user);
+                await migrateReportsToAccount(cred.user, deviceReports);
             } catch(e){ accountError(authErrorMessage(e.code || e.message)); }
         };
         window.doResetPassword = async function(){
@@ -797,7 +830,7 @@
             catch(e){ accountError(authErrorMessage(e.code || e.message)); }
         };
         window.doSignOut = async function(){
-            if(!confirm("Se déconnecter ? Vos rapports restent dans votre compte et réapparaîtront à la prochaine connexion.")) return;
+            if(!await appConfirm("Se déconnecter ? Vos rapports restent dans votre compte et réapparaîtront à la prochaine connexion.")) return;
             try {
                 await signOut(auth);
                 window.closeAccount();
@@ -1045,8 +1078,8 @@
             event.target.value = '';
         };
 
-        window.resetPhraseBank = function() {
-            if(!confirm("Réinitialiser la banque de phrases (revenir aux formulations par défaut) ?")) return;
+        window.resetPhraseBank = async function() {
+            if(!await appConfirm("Réinitialiser la banque de phrases (revenir aux formulations par défaut) ?")) return;
             CUSTOM_BANK = {};
             try { localStorage.removeItem(PHRASES_KEY); } catch(e) {}
             updateBankStatus();
@@ -1935,8 +1968,8 @@ ${buildJargonGuide()}`;
             }
         };
 
-        window.newReport = function() {
-            if(!confirm("Vider le formulaire pour un nouveau rapport ? Les données non enregistrées seront perdues.")) return;
+        window.newReport = async function() {
+            if(!await appConfirm("Vider le formulaire pour un nouveau rapport ? Les données non enregistrées seront perdues.")) return;
             TEXT_FIELDS.forEach(id => {
                 const el = document.getElementById(id);
                 if(!el) return;
@@ -1959,10 +1992,18 @@ ${buildJargonGuide()}`;
         };
 
         // ---------- HISTORIQUE / STATS ----------
+        let unsubscribeReports = null;   // écouteur Firestore actif (un seul à la fois)
         function loadFirebaseStats() {
             if(!currentUser) return;
-            const q = query(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'inspections'));
-            onSnapshot(q, (snap) => {
+            // IMPORTANT : on coupe l'écouteur de la session précédente (ex. anonyme) avant d'en
+            // ouvrir un nouveau. Sinon l'ancien tombe en « permission refusée » après le changement
+            // de compte et fait rebasculer l'affichage sur les rapports locaux (bug de synchro vu
+            // sur Android : les rapports du compte n'apparaissaient qu'après reconnexion).
+            if(unsubscribeReports){ try { unsubscribeReports(); } catch(_) {} unsubscribeReports = null; }
+            const uid = currentUser.uid;
+            const q = query(collection(db, 'artifacts', appId, 'users', uid, 'inspections'));
+            unsubscribeReports = onSnapshot(q, (snap) => {
+                if(!currentUser || currentUser.uid !== uid) return;   // instantané d'une session périmée
                 let reports = [];
                 snap.forEach(docSnap => reports.push({ id: docSnap.id, ...docSnap.data() }));
                 reports.sort((a, b) => {
@@ -1974,6 +2015,7 @@ ${buildJargonGuide()}`;
                 window.renderHistory();
                 window.renderStats();
             }, (e) => {
+                if(!currentUser || currentUser.uid !== uid) return;   // erreur d'une session périmée : ignorer
                 console.error("Snapshot error:", e);
                 notify("Synchronisation cloud indisponible — affichage des rapports locaux.", "warn", 5000);
                 loadLocalReports();
@@ -2200,7 +2242,7 @@ ${buildJargonGuide()}`;
         };
 
         window.deleteEntry = async function(id) {
-            if(!confirm("Supprimer ce rapport ?")) return;
+            if(!await appConfirm("Supprimer ce rapport ?")) return;
             try {
                 if(isLocalMode || String(id).startsWith('local_')) {
                     const list = JSON.parse(localStorage.getItem('inspection_reports') || '[]').filter(x => x.id !== id);
@@ -2258,8 +2300,8 @@ ${buildJargonGuide()}`;
 
         window.deleteAll = async function() {
             if(!isAdmin) return;
-            if(!confirm("Supprimer DÉFINITIVEMENT tous les rapports ? Cette action est irréversible.")) return;
-            if(!confirm("Confirmation finale : tout effacer ?")) return;
+            if(!await appConfirm("Supprimer DÉFINITIVEMENT tous les rapports ? Cette action est irréversible.")) return;
+            if(!await appConfirm("Confirmation finale : tout effacer ?")) return;
             try {
                 if(isLocalMode) {
                     localStorage.removeItem('inspection_reports');
@@ -2314,7 +2356,7 @@ ${buildJargonGuide()}`;
                     fillFormData(data);
                     document.querySelectorAll('textarea').forEach(t => window.autoResize(t));
                     notify("Rapport importé. Vérifiez les champs puis enregistrez-le pour l'ajouter à l'historique.", "info", 6000);
-                    if(confirm("Enregistrer immédiatement ce rapport dans l'historique ?")) {
+                    if(await appConfirm("Enregistrer immédiatement ce rapport dans l'historique ?")) {
                         await window.handleSave();
                     }
                 } catch(e) {
