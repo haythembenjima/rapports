@@ -162,7 +162,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.14.14</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.14.15</span>
         </div>
     </div>
 
@@ -1399,11 +1399,12 @@ ${buildJargonGuide()}`;
                     btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${label}${pct}${imgInfo}`;
                 });
                 if(!text){ notify("Aucun texte détecté sur l'image. Saisissez/collez le texte des notes, puis cliquez sur « Analyser ».", "warn", 9000); return; }
-                if(ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
                 // Confiance basse OU texte qui ne ressemble pas à du français = presque toujours de
                 // l'écriture MANUSCRITE : Tesseract (hors-ligne) ne sait lire que le texte imprimé.
-                // On évite alors de remplir tous les indicateurs à 3 (résultat trompeur).
+                // On évite alors de remplir tous les indicateurs à 3 (résultat trompeur), et on
+                // n'insère PAS le charabia dans la zone de texte (il polluerait le rapport).
                 const unreliable = (confidence != null && confidence < 70) || !looksLikeFrench(text);
+                if(!unreliable && ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
                 if(unreliable && navigator.onLine){
                     notify("Texte peu fiable (écriture manuscrite ?). Passage à l'IA en ligne pour un meilleur résultat…", "info", 7000);
                     if(btn){ btn.disabled = false; btn.innerHTML = old; }
