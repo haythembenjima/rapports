@@ -165,7 +165,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.15.3</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.15.4</span>
         </div>
     </div>
 
@@ -224,7 +224,7 @@
     <div id="update-banner" class="max-w-[21cm] mx-auto hidden bg-sky-50 border-l-4 border-sky-500 text-sky-900 p-3 mb-4 mt-4 text-sm no-print font-sans flex items-center gap-3 flex-wrap">
         <span><i class="fas fa-circle-up"></i> <b>Nouvelle version disponible :</b> <span id="update-version"></span></span>
         <a id="update-link" href="#" target="_blank" rel="noopener" class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1 rounded text-xs font-bold shadow"><i class="fas fa-download"></i> Télécharger</a>
-        <span class="text-xs text-sky-700">Lancez ensuite l'installateur : il met à jour l'application.</span>
+        <span class="text-xs text-sky-700">Téléchargez puis ouvrez le fichier : il met à jour l'application.</span>
         <button onclick="window.dismissUpdate()" class="text-xs underline text-sky-700 ml-auto">Plus tard</button>
     </div>
 
@@ -514,33 +514,60 @@
         // Liste de modèles Gemini, du plus récent au plus stable (fallback automatique)
         const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
-        // ---------- MISE À JOUR AUTOMATIQUE (version Windows/Electron) ----------
-        const APP_VERSION = '1.15.3';
+        // ---------- MISE À JOUR AUTOMATIQUE (Windows + Android) ----------
+        const APP_VERSION = '1.15.4';          // version web/Windows (tags v*)
+        const ANDROID_VERSION = '1.7.15';      // version APK Android (tags android-v*)
         const REPO_RELEASES_API = 'https://api.github.com/repos/haythembenjima/rapports/releases/latest';
+        const REPO_RELEASES_LIST = 'https://api.github.com/repos/haythembenjima/rapports/releases?per_page=30';
         function isNewerVersion(remote, local){
             const a = String(remote).split('.').map(n => parseInt(n) || 0);
             const b = String(local).split('.').map(n => parseInt(n) || 0);
             for(let i = 0; i < 3; i++){ if((a[i]||0) > (b[i]||0)) return true; if((a[i]||0) < (b[i]||0)) return false; }
             return false;
         }
+        function showUpdateBanner(remote, downloadUrl, current, android){
+            if(localStorage.getItem('update_dismissed') === (android ? 'android-' : '') + remote) return;
+            const link = document.getElementById('update-link');
+            const vEl = document.getElementById('update-version');
+            const banner = document.getElementById('update-banner');
+            if(link){
+                link.href = downloadUrl || '#';
+                // Dans l'APK (WebView Capacitor), forcer l'ouverture dans le navigateur système
+                // pour déclencher le téléchargement puis l'installeur Android.
+                link.onclick = android ? function(e){ e.preventDefault(); try { window.open(downloadUrl, '_system'); } catch(_) { window.open(downloadUrl, '_blank'); } } : null;
+            }
+            if(vEl) vEl.innerText = 'v' + remote + ' (installée : v' + current + ')';
+            if(banner){ banner.classList.remove('hidden'); banner.setAttribute('data-version', (android ? 'android-' : '') + remote); }
+        }
         async function checkForUpdate(){
-            if(!/Electron/i.test(navigator.userAgent)) return;          // MAJ proposée sur l'app Windows uniquement
             if(!navigator.onLine) return;
             try {
-                const r = await fetch(REPO_RELEASES_API, { headers: { 'Accept': 'application/vnd.github+json' } });
-                if(!r.ok) return;
-                const rel = await r.json();
-                const remote = String(rel.tag_name || '').replace(/^v/, '');
-                if(!remote || !isNewerVersion(remote, APP_VERSION)) return;
-                if(localStorage.getItem('update_dismissed') === remote) return;   // « Plus tard » déjà choisi pour cette version
-                const asset = (rel.assets || []).find(a => /Setup\.exe$/i.test(a.name || ''));
-                const link = document.getElementById('update-link');
-                const vEl = document.getElementById('update-version');
-                const banner = document.getElementById('update-banner');
-                if(link) link.href = asset ? asset.browser_download_url : (rel.html_url || '#');
-                if(vEl) vEl.innerText = 'v' + remote + ' (installée : v' + APP_VERSION + ')';
-                if(banner) banner.classList.remove('hidden');
-                banner && banner.setAttribute('data-version', remote);
+                if(isNativeApp()){
+                    // Android : les releases APK sont en « prerelease » (absentes de /latest) -> on liste.
+                    const r = await fetch(REPO_RELEASES_LIST, { headers: { 'Accept': 'application/vnd.github+json' } });
+                    if(!r.ok) return;
+                    const list = await r.json();
+                    let best = null, bestVer = ANDROID_VERSION;
+                    for(const rel of (list || [])){
+                        const tag = String(rel.tag_name || '');
+                        if(!tag.startsWith('android-v')) continue;
+                        const ver = tag.replace(/^android-v/, '');
+                        if(isNewerVersion(ver, bestVer)){ best = rel; bestVer = ver; }
+                    }
+                    if(!best) return;
+                    const apk = (best.assets || []).find(a => /\.apk$/i.test(a.name || ''));
+                    showUpdateBanner(bestVer, apk ? apk.browser_download_url : best.html_url, ANDROID_VERSION, true);
+                } else if(/Electron/i.test(navigator.userAgent)){
+                    // Windows : installateur publié dans la release « latest » (non-prerelease).
+                    const r = await fetch(REPO_RELEASES_API, { headers: { 'Accept': 'application/vnd.github+json' } });
+                    if(!r.ok) return;
+                    const rel = await r.json();
+                    const remote = String(rel.tag_name || '').replace(/^v/, '');
+                    if(!remote || !isNewerVersion(remote, APP_VERSION)) return;
+                    const asset = (rel.assets || []).find(a => /Setup\.exe$/i.test(a.name || ''));
+                    showUpdateBanner(remote, asset ? asset.browser_download_url : rel.html_url, APP_VERSION, false);
+                }
+                // Navigateur ordinaire : pas de mise à jour à proposer.
             } catch(_) { /* hors-ligne ou API indisponible : on réessaiera au prochain lancement */ }
         }
         window.dismissUpdate = function(){
