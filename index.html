@@ -11,14 +11,6 @@
     <!-- Export Word (.docx natif) -->
     <script src="https://cdn.jsdelivr.net/npm/docx@9.0.2/build/index.umd.js"></script>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "@google/generative-ai": "https://esm.run/@google/generative-ai"
-        }
-      }
-    </script>
-
     <style>
         body { font-family: "Times New Roman", Times, serif; background-color: #f3f4f6; }
         .scale-btn:checked + label { background-color: #3b82f6; color: white; border-color: #3b82f6; }
@@ -163,9 +155,14 @@
             <div id="status-indicator" class="text-sm font-bold bg-white px-3 py-1 rounded shadow text-green-600">
                 <i class="fas fa-circle-notch fa-spin"></i> Connexion...
             </div>
+            <button id="header-add-file-btn" onclick="document.getElementById('header-file').click()" title="Ajouter un fichier (image ou PDF de notes) à analyser" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
+                <i class="fas fa-paperclip"></i> Fichier
+            </button>
+            <input type="file" id="header-file" accept="image/*,application/pdf,.pdf" multiple class="hidden" onchange="window.handleHandwrittenFiles(event)">
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.14.16</span>
         </div>
     </div>
 
@@ -199,7 +196,7 @@
                     <input type="file" id="handwritten-pdf" accept="application/pdf,.pdf" class="hidden" onchange="window.handleHandwrittenFiles(event)">
                     <label class="text-xs text-gray-700 ml-1 flex items-center gap-1 cursor-pointer" title="Décochez pour générer hors-ligne à partir de la banque"><input type="checkbox" id="ai-mode-online" checked onchange="window.toggleAiMode()"> IA en ligne (Gemini)</label>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">En ligne : lecture par l'IA Gemini (meilleure qualité, requiert Internet + clé). Hors ligne : reconnaissance sur l'appareil puis génération à partir de la <b>banque de jargon</b> (relisez/complétez le texte avant analyse).</p>
+                <p class="text-xs text-gray-500 mt-1">En ligne : lecture par l'IA Gemini (meilleure qualité, lit aussi l'<b>écriture manuscrite</b> ; requiert Internet + clé). Hors ligne : OCR sur l'appareil avec <b>prétraitement de l'image</b> (contraste/netteté) — idéal pour le <b>texte imprimé/tapé</b> et l'<b>écriture manuscrite soignée</b> (résultats variables), puis génération à partir de la <b>banque de jargon</b>. Conseil : photo bien éclairée, à plat, sans ombre.</p>
                 <div id="offline-notes-wrap" class="mt-2 hidden">
                     <textarea id="offline-notes" rows="3" class="w-full text-sm border rounded p-2 focus:outline-none focus:ring focus:ring-indigo-200" placeholder="Texte reconnu des notes (modifiable) — ou saisissez/collez ici vos notes brutes, puis cliquez sur Analyser…"></textarea>
                     <button type="button" id="btn-analyze-offline" onclick="window.analyzeNotesOffline()" class="mt-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm font-bold shadow"><i class="fas fa-bolt"></i> Analyser (hors ligne) → remplir le rapport</button>
@@ -384,7 +381,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, getDoc, setDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { GoogleGenerativeAI } from "@google/generative-ai";
+        // (SDK Gemini retiré : l'IA passe désormais par un appel REST fetch, plus robuste en WebView.)
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -403,7 +400,7 @@
         };
 
         // Liste de modèles Gemini, du plus récent au plus stable (fallback automatique)
-        const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+        const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
         let db, auth, currentUser;
         let currentEditingId = null;
@@ -1064,20 +1061,39 @@
             notify("Clé API Gemini effacée.", "info");
         };
 
-        // Tente chaque modèle de la liste jusqu'à réussite
-        async function geminiGenerate(prompt) {
+        // Appel direct de l'API Gemini en REST (fetch) — plus fiable en WebView que le SDK ESM
+        // (qui dépend d'un import de module CDN pouvant échouer). Gère le repli de modèles et
+        // remonte un message d'erreur clair (clé, quota, modèle…).
+        async function geminiREST(parts) {
             const key = await getGeminiKey();
-            const ai = new GoogleGenerativeAI(key);
+            const restParts = parts.map(p => (typeof p === 'string')
+                ? { text: p }
+                : { inline_data: { mime_type: p.inlineData.mimeType, data: p.inlineData.data } });
+            const body = JSON.stringify({ contents: [{ role: 'user', parts: restParts }], generationConfig: { temperature: 0.4 } });
             let lastErr;
-            for(const modelName of GEMINI_MODELS) {
+            for(const model of GEMINI_MODELS) {
                 try {
-                    const m = ai.getGenerativeModel({ model: modelName });
-                    const res = await m.generateContent(prompt);
-                    return res.response.text().trim();
-                } catch(e) { lastErr = e; }
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+                    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+                    if(!r.ok) {
+                        let detail = ''; try { const j = await r.json(); detail = j?.error?.message || ''; } catch(_) {}
+                        if(r.status === 400 && /api key not valid|api_key_invalid/i.test(detail)) throw new Error("Clé API Gemini invalide. Effacez-la (menu) et saisissez-en une valide.");
+                        if(r.status === 429) { lastErr = new Error("Quota Gemini dépassé. Réessayez plus tard ou utilisez une autre clé."); continue; }
+                        lastErr = new Error(`Gemini ${r.status} (${model})${detail ? ' : ' + detail.slice(0,140) : ''}`);
+                        continue;
+                    }
+                    const j = await r.json();
+                    const cand = j?.candidates?.[0];
+                    const text = (cand?.content?.parts || []).map(p => p.text || '').join('').trim();
+                    if(text) return text;
+                    const block = j?.promptFeedback?.blockReason || cand?.finishReason;
+                    lastErr = new Error("Réponse IA vide" + (block ? ` (${block})` : '') + ".");
+                } catch(e) { lastErr = e; if(/Clé API/.test(e.message)) break; }
             }
             throw lastErr || new Error("Échec de génération");
         }
+        async function geminiGenerate(prompt) { return geminiREST([prompt]); }
+        async function geminiGenerateParts(parts) { return geminiREST(parts); }
 
         window.improveDescription = async function() {
             const t = document.getElementById('desc-lesson');
@@ -1127,20 +1143,7 @@ Données :\n${ctx}`;
         };
 
         // ---------- IA MULTIMODALE : NOTES MANUSCRITES -> RAPPORT ----------
-        // Appel Gemini avec des parts mixtes (texte + images)
-        async function geminiGenerateParts(parts) {
-            const key = await getGeminiKey();
-            const ai = new GoogleGenerativeAI(key);
-            let lastErr;
-            for(const modelName of GEMINI_MODELS) {
-                try {
-                    const m = ai.getGenerativeModel({ model: modelName });
-                    const res = await m.generateContent(parts);
-                    return res.response.text().trim();
-                } catch(e) { lastErr = e; }
-            }
-            throw lastErr || new Error("Échec de génération");
-        }
+        // (geminiGenerateParts est défini plus haut : appel REST avec parts mixtes texte + images)
 
         // Construit un guide de jargon (extrait de la banque) pour orienter le style de l'IA
         function buildJargonGuide() {
@@ -1215,10 +1218,25 @@ Données :\n${ctx}`;
             if(wrap) wrap.classList.toggle('hidden', !!online);
         };
 
+        // Libellés canoniques des boutons de chargement (notes manuscrites) : on les restaure
+        // toujours à partir de cette table, jamais d'un innerHTML capturé « au vol » (qui pouvait
+        // figer le spinner « Lecture IA… / Reconnaissance… » si un traitement était interrompu).
+        const HW_BTN_LABELS = {
+            'btn-photo': '<i class="fas fa-camera"></i> Prendre une photo',
+            'btn-handwritten': '<i class="fas fa-images"></i> Charger des images',
+            'btn-pdf-import': '<i class="fas fa-file-pdf"></i> Charger un PDF',
+            'header-add-file-btn': '<i class="fas fa-paperclip"></i> Fichier'
+        };
+        function resetHandwrittenButtons(){
+            for(const id in HW_BTN_LABELS){
+                const b = document.getElementById(id);
+                if(b){ b.disabled = false; b.innerHTML = HW_BTN_LABELS[id]; }
+            }
+        }
+
         // ----- Mode EN LIGNE (Gemini multimodal) -----
         async function runOnlineAI(imgFiles) {
             const btn = document.getElementById('btn-handwritten');
-            const old = btn ? btn.innerHTML : '';
             if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lecture IA…'; }
             try {
                 const imgs = await Promise.all(imgFiles.map(f => new Promise((res, rej) => {
@@ -1258,7 +1276,7 @@ ${buildJargonGuide()}`;
             } catch(e) {
                 notify("Erreur IA : " + (e?.message || "vérifiez votre clé API ou passez en mode hors-ligne"), "error", 8000);
             } finally {
-                if(btn){ btn.disabled = false; btn.innerHTML = old; }
+                resetHandwrittenButtons();
             }
         }
 
@@ -1281,16 +1299,44 @@ ${buildJargonGuide()}`;
         // Réduit les grandes photos (galerie : 8–12 Mpx) avant l'OCR : sinon Tesseract sature la
         // mémoire de la WebView Android et semble « bloqué ». ~2000 px suffisent pour lire le texte.
         function fileToImage(file){ return new Promise((res, rej) => { const url = URL.createObjectURL(file); const img = new Image(); img.onload = () => { URL.revokeObjectURL(url); res(img); }; img.onerror = e => { URL.revokeObjectURL(url); rej(e); }; img.src = url; }); }
-        async function downscaleForOcr(file, maxDim = 1500){
+        // Redimensionne PUIS prétraite l'image pour l'OCR. Le prétraitement (niveaux de gris +
+        // étirement de contraste + léger gamma) améliore nettement la lecture de photos de notes :
+        // éclairage inégal, encre pâle, crayon, écriture soignée. Renvoie un <canvas> (accepté par Tesseract).
+        async function downscaleForOcr(file, maxDim = 2000){
             try {
                 const img = await fileToImage(file);
                 const w = img.naturalWidth, h = img.naturalHeight;
-                const scale = Math.min(1, maxDim / Math.max(w, h || 1));
-                if(scale >= 1 || !w || !h) return file; // déjà assez petite
+                if(!w || !h) return file;
+                const scale = Math.min(1, maxDim / Math.max(w, h));
+                const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
                 const c = document.createElement('canvas');
-                c.width = Math.round(w * scale); c.height = Math.round(h * scale);
-                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-                return c; // un <canvas> est accepté par Tesseract
+                c.width = cw; c.height = ch;
+                const ctx = c.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0, cw, ch);
+                try {
+                    const id = ctx.getImageData(0, 0, cw, ch); const d = id.data; const n = d.length;
+                    // 1) niveaux de gris (luminance) + histogramme
+                    const hist = new Uint32Array(256);
+                    for(let i = 0; i < n; i += 4){
+                        const g = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) | 0;
+                        d[i] = d[i+1] = d[i+2] = g; hist[g]++;
+                    }
+                    // 2) bornes aux 2e/98e percentiles (ignore les pixels extrêmes/bruit)
+                    const total = n / 4; let lo = 0, hi = 255, acc = 0;
+                    const loCut = total * 0.02, hiCut = total * 0.98;
+                    for(let v = 0; v < 256; v++){ acc += hist[v]; if(acc >= loCut){ lo = v; break; } }
+                    acc = 0; for(let v = 0; v < 256; v++){ acc += hist[v]; if(acc >= hiCut){ hi = v; break; } }
+                    const range = Math.max(1, hi - lo);
+                    // 3) étirement linéaire + léger gamma (>1) pour assombrir le texte sans effacer les traits pâles
+                    const lut = new Uint8Array(256);
+                    for(let v = 0; v < 256; v++){
+                        let t = (v - lo) / range; t = t < 0 ? 0 : (t > 1 ? 1 : t);
+                        lut[v] = Math.round(Math.pow(t, 1.15) * 255);
+                    }
+                    for(let i = 0; i < n; i += 4){ const g = lut[d[i]]; d[i] = d[i+1] = d[i+2] = g; }
+                    ctx.putImageData(id, 0, 0);
+                } catch(_) { /* getImageData peut échouer si le canvas est très grand : on garde l'image redimensionnée */ }
+                return c;
             } catch(e) { return file; }
         }
         const OCR_LABELS = {
@@ -1305,33 +1351,62 @@ ${buildJargonGuide()}`;
         };
         async function runOcrToText(imgFiles, onProgress){
             const T = await ensureTesseract();
-            const opts = { logger: m => { if(onProgress) onProgress(m); } };
-            if(_ocrBase){ opts.workerPath = _ocrBase + 'worker.min.js'; opts.corePath = _ocrBase; opts.langPath = _ocrBase; }
+            const opts = {
+                logger: m => { if(onProgress) onProgress(m); },
+                // En WebView Android, la mise en cache IndexedDB de la langue peut rester bloquée :
+                // on la désactive pour charger la langue directement à chaque fois.
+                cacheMethod: 'none'
+            };
+            if(_ocrBase){
+                opts.workerPath = _ocrBase + 'worker.min.js';
+                opts.corePath = _ocrBase;
+                opts.langPath = _ocrBase;
+                opts.gzip = false; // on utilise fra.traineddata NON compressé (pas de décompression qui coince)
+                // CLÉ DU BLOCAGE EN WEBVIEW : par défaut Tesseract enveloppe le worker dans un blob:
+                // (origine opaque) → le téléchargement XHR de la langue est bloqué (CORS) et reste figé.
+                // Le worker étant embarqué et de même origine, on désactive cette enveloppe.
+                opts.workerBlobURL = false;
+                // Préchauffage : on vérifie d'abord, depuis le thread principal, que le modèle est
+                // bien accessible (et on le signale), pour distinguer « fichier injoignable » d'un blocage moteur.
+                try {
+                    const t0 = (performance && performance.now) ? performance.now() : Date.now();
+                    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 15000);
+                    const r = await fetch(_ocrBase + 'fra.traineddata', { signal: ctrl.signal }); const b = await r.blob(); clearTimeout(to);
+                    const ms = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - t0);
+                    if(onProgress) onProgress({ status: 'preflight', _msg: `modèle ${r.ok ? 'OK' : 'HTTP ' + r.status} ${Math.round(b.size/1024)} Ko en ${ms} ms` });
+                } catch(e) {
+                    if(onProgress) onProgress({ status: 'preflight', _msg: 'modèle injoignable : ' + (e.name === 'AbortError' ? 'délai dépassé' : (e.message || e.name)) });
+                }
+            } else {
+                opts.gzip = true;  // modèle .gz depuis le CDN
+            }
             // Un seul worker réutilisé pour toutes les images, puis libéré (évite les fuites mémoire).
-            let worker = null;
-            try { worker = await withTimeout(T.createWorker('fra', 1, opts), 120000, 'OCR: initialisation trop longue'); } catch(e) { worker = null; }
-            let out = '';
+            const worker = await withTimeout(T.createWorker('fra', 1, opts), 45000, "Chargement de la langue trop long");
+            // Paramètres adaptés à une page de notes : bloc de texte uniforme, espaces conservés.
+            try { await worker.setParameters({ tessedit_pageseg_mode: '6', preserve_interword_spaces: '1' }); } catch(_) {}
+            let out = ''; const confs = [];
             try {
                 for(let i = 0; i < imgFiles.length; i++){
                     if(onProgress) onProgress({ status: 'recognizing text', progress: 0, _img: i });
                     const input = await downscaleForOcr(imgFiles[i]);
-                    const rec = worker ? worker.recognize(input) : T.recognize(input, 'fra', opts);
-                    const { data } = await withTimeout(rec, 120000, 'OCR: image trop longue à analyser');
+                    const { data } = await withTimeout(worker.recognize(input), 60000, 'Image trop longue à analyser');
                     out += (out ? '\n' : '') + (data.text || '');
+                    if(typeof data.confidence === 'number') confs.push(data.confidence);
                 }
-            } finally { if(worker){ try { await worker.terminate(); } catch(_) {} } }
-            return out.trim();
+            } finally { try { await worker.terminate(); } catch(_) {} }
+            return { text: out.trim(), confidence: confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : null };
         }
 
         async function runOfflineOCR(imgFiles){
             const cb = document.getElementById('ai-mode-online'); if(cb) cb.checked = false; window.toggleAiMode();
             const ta = document.getElementById('offline-notes');
-            const btn = document.getElementById('btn-handwritten'); const old = btn ? btn.innerHTML : '';
+            const btn = document.getElementById('btn-handwritten');
             if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reconnaissance…'; }
             const total = imgFiles.length;
             try {
                 notify("Reconnaissance du texte sur l'appareil… (peut prendre un moment)", "info", 6000);
-                const text = await runOcrToText(imgFiles, (m) => {
+                const { text, confidence } = await runOcrToText(imgFiles, (m) => {
+                    if(m.status === 'preflight'){ notify("Diagnostic OCR : " + (m._msg || ''), "info", 9000); return; }
                     if(!btn) return;
                     const label = OCR_LABELS[m.status] || 'Reconnaissance';
                     const pct = (m.progress != null && m.status === 'recognizing text') ? ' ' + Math.round(m.progress * 100) + '%' : '…';
@@ -1339,13 +1414,34 @@ ${buildJargonGuide()}`;
                     btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${label}${pct}${imgInfo}`;
                 });
                 if(!text){ notify("Aucun texte détecté sur l'image. Saisissez/collez le texte des notes, puis cliquez sur « Analyser ».", "warn", 9000); return; }
-                if(ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
+                // Confiance basse OU texte qui ne ressemble pas à du français = presque toujours de
+                // l'écriture MANUSCRITE : Tesseract (hors-ligne) ne sait lire que le texte imprimé.
+                // On évite alors de remplir tous les indicateurs à 3 (résultat trompeur), et on
+                // n'insère PAS le charabia dans la zone de texte (il polluerait le rapport).
+                const unreliable = (confidence != null && confidence < 70) || !looksLikeFrench(text);
+                if(!unreliable && ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
+                if(unreliable && navigator.onLine){
+                    notify("Texte peu fiable (écriture manuscrite ?). Passage à l'IA en ligne pour un meilleur résultat…", "info", 7000);
+                    resetHandwrittenButtons();
+                    try { await runOnlineAI(imgFiles); return; } catch(_) {}
+                }
+                if(unreliable){
+                    notify("Reconnaissance peu fiable : l'OCR hors-ligne ne lit que le texte IMPRIMÉ, pas l'écriture manuscrite (la grille n'a pas été remplie pour éviter des notes erronées). Pour des notes manuscrites, cochez « IA en ligne (Gemini) », ou corrigez le texte ci-dessus puis « Analyser ».", "warn", 14000);
+                    return;
+                }
                 notify("Texte reconnu. Relisez/corrigez si besoin — analyse en cours…", "success", 5000);
                 window.analyzeNotesOffline();
             } catch(e) {
+                // L'OCR sur l'appareil a échoué/expiré : si on a une connexion, on bascule
+                // automatiquement vers l'IA en ligne (Gemini) pour ne pas bloquer la création du rapport.
+                if(navigator.onLine){
+                    notify("OCR hors-ligne indisponible — passage à l'IA en ligne…", "info", 6000);
+                    resetHandwrittenButtons();
+                    try { await runOnlineAI(imgFiles); return; } catch(_) {}
+                }
                 notify("OCR hors-ligne interrompu (" + (e && e.message ? e.message : 'erreur') + "). Saisissez/collez le texte des notes ci-dessus, puis cliquez sur « Analyser ».", "warn", 10000);
             } finally {
-                if(btn){ btn.disabled = false; btn.innerHTML = old; }
+                resetHandwrittenButtons();
             }
         }
 
@@ -1374,18 +1470,39 @@ ${buildJargonGuide()}`;
         ];
 
         function normTxt(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u0027\u2019]/g,' ').replace(/\s+/g,' '); }
+        // Détecte si un texte ressemble vraiment à du français (vs charabia d'OCR sur du manuscrit).
+        // Plus fiable que la « confiance » de Tesseract, qui reste parfois élevée sur du charabia.
+        // Trois critères cumulés : mots-outils (≥2 lettres), faible bruit symbolique (|\—+[]…),
+        // et proportion suffisante de vrais mots français dans le texte.
+        const FR_LEXICON = new Set(('le la les de des du un une et est en au aux dans pour que qui ne pas sur avec son sa ses il elle ce cette plus ou par se sont ont fait tres bien bonne bon mais comme sans tout tous toute notes note cours eleves eleve seance classe travail temps mise situation objectifs objectif tableau gestion exercices exercice application rappel support supports question questions reponses reponse participation evaluation synthese groupe groupes document documents methode contenu lecon activite activites enseignant enseignante professeur utilise presente propose explique demande corrige manque absence retard maitrise interaction rythme plan trace ecrite cahier cahiers manuel correction devoirs devoir suivi difficultes difficulte niveau moyen faible insuffisant satisfaisant excellent debut fin heure date visite rapport remarques remarque').split(' '));
+        function looksLikeFrench(text){
+            const t = ' ' + normTxt(text) + ' ';
+            // Mots-outils d'au moins 2 lettres : ceux d'1 lettre (a, l, d…) matchent trop souvent le charabia.
+            const stop = [' le ',' la ',' les ',' de ',' des ',' du ',' un ',' une ',' et ',' est ',' en ',' au ',' aux ',' dans ',' pour ',' que ',' qui ',' ne ',' pas ',' sur ',' avec ',' son ',' sa ',' ses ',' il ',' elle ',' ce ',' cette ',' plus ',' ou ',' par ',' se ',' sont ',' ont '];
+            let hits = 0; for(const s of stop){ if(t.includes(s)) hits++; }
+            const wordsArr = text.match(/[A-Za-zÀ-ÿ]{2,}/g) || [];
+            if(wordsArr.length < 5 || hits < 3) return false;
+            // Bruit symbolique : l'OCR de manuscrit produit beaucoup de | \ — + [ ] # etc.
+            const chars = text.replace(/\s/g, '');
+            const noise = (chars.match(/[^A-Za-zÀ-ÿ0-9.,;:'’()\/%«»\-]/g) || []).length;
+            if(chars.length && noise / chars.length > 0.06) return false;
+            // Proportion de mots réellement français (lexique courant + vocabulaire des notes de visite).
+            let known = 0; for(const w of wordsArr){ if(FR_LEXICON.has(normTxt(w).trim())) known++; }
+            return known / wordsArr.length >= 0.18;
+        }
         function inferLevelsFromText(text){
-            const t = normTxt(text); const levels = {};
+            const t = normTxt(text); const levels = {}; let matched = 0;
             OFFLINE_RULES.forEach(r => {
                 const strong = r.strong && r.strong.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
                 const neg = r.neg && r.neg.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
                 const pos = r.pos && r.pos.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
                 let lv = 3;
                 if(strong) lv = 1; else if(neg && !pos) lv = 2; else if(pos && !neg) lv = 4;
+                if(strong || neg || pos) matched++;
                 levels[r.id] = lv;
             });
             gridData.forEach(c => c.items.forEach(it => { if(levels[it.id] == null) levels[it.id] = 3; }));
-            return levels;
+            return { levels, matched };
         }
 
         // Génère le rapport HORS-LIGNE à partir du texte des notes + la banque
@@ -1393,7 +1510,17 @@ ${buildJargonGuide()}`;
             const ta = document.getElementById('offline-notes');
             const text = ta ? ta.value.trim() : '';
             if(!text){ notify("Aucun texte à analyser : chargez des images ou saisissez les notes.", "warn"); return; }
-            const levels = inferLevelsFromText(text);
+            // Garde-fou : si le texte est du charabia d'OCR (manuscrit illisible), on NE remplit PAS
+            // la grille — sinon tous les indicateurs partent à 3, ce qui fausse la note /20.
+            if(!looksLikeFrench(text)){
+                notify("Le texte reconnu n'est pas du français lisible (écriture manuscrite ?) : la grille n'a PAS été remplie pour éviter une note erronée. Corrigez/saisissez vos notes dans la zone de texte puis « Analyser », ou cochez « IA en ligne (Gemini) » et rechargez le fichier (l'IA lit le manuscrit).", "warn", 14000);
+                return;
+            }
+            const { levels, matched } = inferLevelsFromText(text);
+            if(!matched){
+                notify("Aucun élément exploitable n'a été trouvé dans les notes : la grille n'a pas été remplie. Complétez le texte (mots-clés : participation, tableau, objectifs, évaluation…) ou utilisez l'IA en ligne.", "warn", 12000);
+                return;
+            }
             gridData.forEach(c => c.items.forEach(it => {
                 const lv = levels[it.id];
                 const r = document.getElementById(`${it.id}-${lv}`); if(r) r.checked = true;
@@ -1421,7 +1548,7 @@ ${buildJargonGuide()}`;
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = _pdfBase ? (_pdfBase + 'pdf.worker.min.js') : 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             return window.pdfjsLib;
         }
-        async function pdfToImageFiles(file, maxPages = 6, targetW = 1500){
+        async function pdfToImageFiles(file, maxPages = 6, targetW = 2000){
             const pdfjsLib = await ensurePdfJs();
             const buf = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
@@ -1569,6 +1696,8 @@ ${buildJargonGuide()}`;
             document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
             document.querySelectorAll('[id^="print-val-"]').forEach(p => p.innerText = '-');
             gridData.forEach((c, idx) => { const t = document.getElementById(`obs-cat-${idx}`); if(t) t.value=''; });
+            const offlineTa = document.getElementById('offline-notes'); if(offlineTa) offlineTa.value = '';
+            resetHandwrittenButtons();
             currentEditingId = null;
             window.resetAutoScore();
             window.refreshMobileCards && window.refreshMobileCards();

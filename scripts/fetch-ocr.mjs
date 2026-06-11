@@ -6,7 +6,6 @@ import { writeFile, mkdir } from 'node:fs/promises';
 const OUT = 'ocr';
 const TJS = '5.1.1';        // version tesseract.js (lib + worker, doivent correspondre)
 const CORE = '5.0.0';       // version tesseract.js-core (WASM)
-const LANG = '4.0.0_fast';  // données tessdata « fast » : bien plus rapides sur CPU mobile
 const PDFJS = '3.11.174';   // pdf.js (rendu des PDF en images pour l'OCR / l'IA)
 
 const files = [
@@ -20,7 +19,10 @@ const files = [
   [`https://cdn.jsdelivr.net/npm/tesseract.js-core@${CORE}/tesseract-core-lstm.wasm`, 'tesseract-core-lstm.wasm'],
   [`https://cdn.jsdelivr.net/npm/tesseract.js-core@${CORE}/tesseract-core-simd-lstm.wasm.js`, 'tesseract-core-simd-lstm.wasm.js'],
   [`https://cdn.jsdelivr.net/npm/tesseract.js-core@${CORE}/tesseract-core-simd-lstm.wasm`, 'tesseract-core-simd-lstm.wasm'],
-  [`https://tessdata.projectnaptha.com/${LANG}/fra.traineddata.gz`, 'fra.traineddata.gz'],
+  // Modèle de langue « fast » NON compressé : évite l'étape de décompression (qui peut rester
+  // bloquée dans la WebView Android) ET le conflit « Duplicate resources » d'Android si l'on
+  // embarquait aussi la version .gz. La version navigateur utilise le CDN (gz) au runtime.
+  [`https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/fra.traineddata`, 'fra.traineddata'],
   [`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS}/pdf.min.js`, 'pdf.min.js'],
   [`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS}/pdf.worker.min.js`, 'pdf.worker.min.js'],
 ];
