@@ -1455,26 +1455,37 @@ ${buildJargonGuide()}`;
         function normTxt(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u0027\u2019]/g,' ').replace(/\s+/g,' '); }
         // Détecte si un texte ressemble vraiment à du français (vs charabia d'OCR sur du manuscrit).
         // Plus fiable que la « confiance » de Tesseract, qui reste parfois élevée sur du charabia.
+        // Trois critères cumulés : mots-outils (≥2 lettres), faible bruit symbolique (|\—+[]…),
+        // et proportion suffisante de vrais mots français dans le texte.
+        const FR_LEXICON = new Set(('le la les de des du un une et est en au aux dans pour que qui ne pas sur avec son sa ses il elle ce cette plus ou par se sont ont fait tres bien bonne bon mais comme sans tout tous toute notes note cours eleves eleve seance classe travail temps mise situation objectifs objectif tableau gestion exercices exercice application rappel support supports question questions reponses reponse participation evaluation synthese groupe groupes document documents methode contenu lecon activite activites enseignant enseignante professeur utilise presente propose explique demande corrige manque absence retard maitrise interaction rythme plan trace ecrite cahier cahiers manuel correction devoirs devoir suivi difficultes difficulte niveau moyen faible insuffisant satisfaisant excellent debut fin heure date visite rapport remarques remarque').split(' '));
         function looksLikeFrench(text){
             const t = ' ' + normTxt(text) + ' ';
-            const stop = [' le ',' la ',' les ',' de ',' des ',' du ',' un ',' une ',' et ',' est ',' en ',' au ',' aux ',' dans ',' pour ',' que ',' qui ',' ne ',' pas ',' sur ',' avec ',' son ',' sa ',' ses ',' il ',' elle ',' a ',' l ',' d ',' ce ',' cette ',' plus ',' ou ',' par '];
+            // Mots-outils d'au moins 2 lettres : ceux d'1 lettre (a, l, d…) matchent trop souvent le charabia.
+            const stop = [' le ',' la ',' les ',' de ',' des ',' du ',' un ',' une ',' et ',' est ',' en ',' au ',' aux ',' dans ',' pour ',' que ',' qui ',' ne ',' pas ',' sur ',' avec ',' son ',' sa ',' ses ',' il ',' elle ',' ce ',' cette ',' plus ',' ou ',' par ',' se ',' sont ',' ont '];
             let hits = 0; for(const s of stop){ if(t.includes(s)) hits++; }
-            const words = (text.match(/[A-Za-zÀ-ÿ]{2,}/g) || []).length;
-            if(words < 5) return false;
-            return words >= 12 ? hits >= 4 : hits >= 2;
+            const wordsArr = text.match(/[A-Za-zÀ-ÿ]{2,}/g) || [];
+            if(wordsArr.length < 5 || hits < 3) return false;
+            // Bruit symbolique : l'OCR de manuscrit produit beaucoup de | \ — + [ ] # etc.
+            const chars = text.replace(/\s/g, '');
+            const noise = (chars.match(/[^A-Za-zÀ-ÿ0-9.,;:'’()\/%«»\-]/g) || []).length;
+            if(chars.length && noise / chars.length > 0.06) return false;
+            // Proportion de mots réellement français (lexique courant + vocabulaire des notes de visite).
+            let known = 0; for(const w of wordsArr){ if(FR_LEXICON.has(normTxt(w).trim())) known++; }
+            return known / wordsArr.length >= 0.18;
         }
         function inferLevelsFromText(text){
-            const t = normTxt(text); const levels = {};
+            const t = normTxt(text); const levels = {}; let matched = 0;
             OFFLINE_RULES.forEach(r => {
                 const strong = r.strong && r.strong.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
                 const neg = r.neg && r.neg.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
                 const pos = r.pos && r.pos.some(p => { try { return new RegExp(p).test(t); } catch(e){ return false; } });
                 let lv = 3;
                 if(strong) lv = 1; else if(neg && !pos) lv = 2; else if(pos && !neg) lv = 4;
+                if(strong || neg || pos) matched++;
                 levels[r.id] = lv;
             });
             gridData.forEach(c => c.items.forEach(it => { if(levels[it.id] == null) levels[it.id] = 3; }));
-            return levels;
+            return { levels, matched };
         }
 
         // Génère le rapport HORS-LIGNE à partir du texte des notes + la banque
@@ -1482,7 +1493,17 @@ ${buildJargonGuide()}`;
             const ta = document.getElementById('offline-notes');
             const text = ta ? ta.value.trim() : '';
             if(!text){ notify("Aucun texte à analyser : chargez des images ou saisissez les notes.", "warn"); return; }
-            const levels = inferLevelsFromText(text);
+            // Garde-fou : si le texte est du charabia d'OCR (manuscrit illisible), on NE remplit PAS
+            // la grille — sinon tous les indicateurs partent à 3, ce qui fausse la note /20.
+            if(!looksLikeFrench(text)){
+                notify("Le texte reconnu n'est pas du français lisible (écriture manuscrite ?) : la grille n'a PAS été remplie pour éviter une note erronée. Corrigez/saisissez vos notes dans la zone de texte puis « Analyser », ou cochez « IA en ligne (Gemini) » et rechargez le fichier (l'IA lit le manuscrit).", "warn", 14000);
+                return;
+            }
+            const { levels, matched } = inferLevelsFromText(text);
+            if(!matched){
+                notify("Aucun élément exploitable n'a été trouvé dans les notes : la grille n'a pas été remplie. Complétez le texte (mots-clés : participation, tableau, objectifs, évaluation…) ou utilisez l'IA en ligne.", "warn", 12000);
+                return;
+            }
             gridData.forEach(c => c.items.forEach(it => {
                 const lv = levels[it.id];
                 const r = document.getElementById(`${it.id}-${lv}`); if(r) r.checked = true;
