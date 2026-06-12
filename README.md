@@ -137,7 +137,7 @@ service cloud.firestore {
     match /artifacts/{appId}/public/data/enseignants_suivi/{ficheId} {
       allow read, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.ownerUid == request.auth.uid && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.auth != null && request.resource.data.ownerUid == request.auth.uid && (resource.data.ownerUid == request.auth.uid || !('ownerUid' in resource.data));
     }
   }
 }
