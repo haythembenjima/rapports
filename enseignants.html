@@ -87,6 +87,32 @@
         </div>
     </div>
 
+    <!-- Modale compte inspecteur (même e-mail / mot de passe que l'application) -->
+    <div id="account-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 class="font-bold text-lg mb-1"><i class="fas fa-user-shield text-indigo-600"></i> Compte inspecteur</h3>
+            <p class="text-xs text-gray-500 mb-3">Le même e-mail et mot de passe que dans l'application « Rapport d'Inspection ».</p>
+            <p id="account-hint" class="hidden text-sm bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-3 py-2 mb-3"></p>
+            <div id="account-signed-out">
+                <input id="account-email-input" type="email" placeholder="Adresse e-mail" autocomplete="username" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-2">
+                <input id="account-password-input" type="password" placeholder="Mot de passe (6 caractères min)" autocomplete="current-password" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-2">
+                <p id="account-error" class="hidden text-sm text-red-600 mb-2"></p>
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="doSignIn()" class="grow bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">Se connecter</button>
+                    <button onclick="doSignUp()" class="grow bg-white border border-indigo-300 text-indigo-700 hover:bg-indigo-50 px-4 py-2 rounded-lg">Créer un compte</button>
+                </div>
+                <button onclick="doResetPass()" class="text-xs text-gray-500 hover:text-indigo-700 underline mt-2">Mot de passe oublié ?</button>
+            </div>
+            <div id="account-signed-in" class="hidden">
+                <p class="text-sm mb-3">Connecté : <b id="account-email"></b></p>
+                <button onclick="doSignOut()" class="w-full bg-red-50 border border-red-300 text-red-700 hover:bg-red-100 px-4 py-2 rounded-lg"><i class="fas fa-right-from-bracket"></i> Se déconnecter</button>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button onclick="closeAccount()" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Barre supérieure -->
     <nav class="no-print ui-sans bg-indigo-700 text-white shadow-lg">
         <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
@@ -99,6 +125,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <button id="btn-myfiche" onclick="openAdmin()" class="hidden bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-list"></i> Liste des fiches</button>
+                <button onclick="openAccount()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-user"></i> <span id="btn-account-label">Compte</span></button>
                 <button onclick="openAdmin()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-user-shield"></i> Espace inspecteur</button>
             </div>
         </div>
@@ -128,7 +155,8 @@
                 <li>Indiquez en bas les <b>niveaux enseignés</b> et le <b>nombre d'élèves</b> par niveau.</li>
                 <li>Cliquez sur <b>Enregistrer</b> : un <b>code personnel</b> vous sera attribué pour modifier votre fiche plus tard.</li>
             </ol>
-            <p class="mt-2 text-xs text-gray-500"><i class="fas fa-lock"></i> Ces informations sont destinées exclusivement à l'inspection pédagogique de la discipline.</p>
+            <p class="mt-2 text-xs text-gray-500"><i class="fas fa-link"></i> Si vous avez ouvert le <b>lien envoyé par votre inspecteur</b>, son code est déjà rempli automatiquement dans « Code inspecteur » : votre fiche arrivera directement dans sa base.</p>
+            <p class="mt-1 text-xs text-gray-500"><i class="fas fa-lock"></i> Ces informations sont destinées exclusivement à l'inspection pédagogique de la discipline.</p>
         </div>
 
         <!-- Bandeau « fiche enregistrée » -->
@@ -229,7 +257,7 @@
                     <input id="f-cre" type="text" list="cre-list" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Sousse">
                     <datalist id="cre-list"></datalist>
                 </label>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <label class="block">
                         <span class="text-sm font-semibold">Grade</span>
                         <select id="f-grade" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
@@ -246,6 +274,10 @@
                     <label class="block">
                         <span class="text-sm font-semibold">Date de recrutement</span>
                         <input id="f-date-recrutement" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Code inspecteur</span>
+                        <input id="f-insp" type="text" maxlength="8" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 uppercase" placeholder="auto via le lien">
                     </label>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
@@ -322,6 +354,16 @@
         <!-- Erreur d'accès (règles Firestore) -->
         <div id="adm-error" class="hidden bg-red-100 border border-red-300 text-red-800 rounded-xl px-4 py-3 my-3 text-sm"></div>
 
+        <!-- Lien personnel à partager aux enseignants -->
+        <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 my-3 text-sm">
+            <div class="font-semibold text-indigo-900 mb-1"><i class="fas fa-link"></i> Votre lien à partager aux enseignants</div>
+            <div class="flex gap-2 items-center flex-wrap">
+                <input id="adm-share-link" readonly class="grow min-w-[220px] border border-indigo-300 rounded-lg px-2 py-1.5 bg-white text-xs">
+                <button onclick="copyShareLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-copy"></i> Copier</button>
+            </div>
+            <p class="text-xs text-indigo-700 mt-1">Les fiches remplies via ce lien arrivent directement dans <b>votre</b> base (code inspecteur : <b id="adm-my-code"></b>).</p>
+        </div>
+
         <!-- Statistiques -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-3">
             <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
@@ -357,7 +399,6 @@
                 <option value="maj">Tri : Dernière mise à jour</option>
             </select>
             <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-csv"></i> Export CSV</button>
-            <button onclick="changeAdminPass()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-lock"></i> Mot de passe</button>
             <button onclick="adminLogout()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-right-from-bracket"></i> Quitter</button>
         </div>
 
@@ -382,8 +423,18 @@
                 </table>
             </div>
             <div id="adm-empty" class="hidden p-8 text-center text-gray-400 text-sm">
-                <i class="fas fa-inbox text-3xl mb-2"></i><br>Aucune fiche pour le moment. Partagez le lien de cette page avec les enseignants.
+                <i class="fas fa-inbox text-3xl mb-2"></i><br>Aucune fiche dans votre base pour le moment. Partagez <b>votre lien</b> (ci-dessus) avec vos enseignants.
             </div>
+        </div>
+
+        <!-- Fiches reçues sans code inspecteur (ancien lien) : importables dans sa base -->
+        <div id="adm-legacy" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-3 my-3">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                <div class="text-sm text-amber-900 font-semibold"><i class="fas fa-inbox"></i> Fiches reçues sans code inspecteur : <span id="adm-legacy-count"></span></div>
+                <button onclick="importAllLegacy()" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-download"></i> Tout importer dans ma base</button>
+            </div>
+            <p class="text-xs text-amber-800 mb-2">Ces fiches ont été remplies avec l'ancien lien (sans code). Importez-les pour les voir dans votre liste.</p>
+            <div id="adm-legacy-list" class="text-sm"></div>
         </div>
     </main>
 
@@ -392,7 +443,8 @@
         // fonctionne immédiatement, même si le CDN est lent ou bloqué (réseau filtré).
         let initializeApp;
         let initializeFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, where, limit, serverTimestamp;
-        let getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence;
+        let getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence,
+            signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut;
 
         // Même projet Firebase et même appId que l'application « Rapport d'Inspection » :
         // les fiches alimentent la même base (collection publique partagée).
@@ -407,10 +459,10 @@
             measurementId: "G-84M69DBM8S"
         };
 
-        const DEFAULT_ADMIN_PASS = "admin2026";           // même défaut que l'application principale
         const DRAFT_KEY  = 'fiche_enseignant_draft_v1';   // brouillon local (avant envoi)
         const SAVED_KEY  = 'fiche_enseignant_saved_v1';   // {id, code} de la fiche envoyée depuis cet appareil
         const PENDING_KEY= 'fiche_enseignant_pending_v1'; // fiche remplie hors ligne, à envoyer
+        const INSP_KEY   = 'fiche_enseignant_insp_v1';    // code inspecteur mémorisé (vient du lien partagé ?i=CODE)
 
         // Jours et créneaux : lundi → samedi, 8h → 18h, séances de 2 heures.
         const DAYS  = [ ['lun','Lundi'], ['mar','Mardi'], ['mer','Mercredi'], ['jeu','Jeudi'], ['ven','Vendredi'], ['sam','Samedi'] ];
@@ -431,12 +483,12 @@
         let db, auth, currentUser = null;
         const fichesCol  = () => collection(db, 'artifacts', appId, 'public', 'data', 'enseignants');
         const ficheDoc   = (id) => doc(db, 'artifacts', appId, 'public', 'data', 'enseignants', id);
-        const adminCfgDoc= () => doc(db, 'artifacts', appId, 'public', 'data', 'enseignants_config', 'admin');
+        const inspProfileDoc = (uid) => doc(db, 'artifacts', appId, 'public', 'data', 'enseignants_config', 'insp_' + uid);
 
         let viewingAdminId = null;     // id de la fiche ouverte par l'inspecteur (null = mode enseignant)
         let adminRows = [];            // cache des fiches pour la liste admin
         let unsubAdmin = null;         // désabonnement du snapshot admin
-        let adminPassHash = null;
+        let myCode = null;             // code personnel de l'inspecteur connecté (la clé de SA base)
 
         // ---------- PETITS UTILITAIRES ----------
         const $ = (id) => document.getElementById(id);
@@ -451,10 +503,6 @@
             const now = new Date();
             const y = now.getFullYear();
             return now.getMonth() >= 8 ? `${y}/${y+1}` : `${y-1}/${y}`;   // l'année scolaire démarre en septembre
-        }
-        async function hashText(str){
-            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
         }
         function genCode(){
             const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // sans 0/O/1/I (lisible au téléphone)
@@ -574,6 +622,7 @@
                 derniereNote: $('f-note').value,
                 inspecteur: $('f-inspecteur').value.trim(),
                 dateNote: $('f-date-note').value,
+                insp: $('f-insp').value.trim().toUpperCase(),
                 anneeScolaire: anneeScolaire(),
                 emploi: {},
                 niveaux: {}
@@ -608,6 +657,7 @@
             $('f-note').value = d.derniereNote ?? '';
             $('f-inspecteur').value = d.inspecteur || '';
             $('f-date-note').value = d.dateNote || '';
+            $('f-insp').value = d.insp || (viewingAdminId ? '' : (localStorage.getItem(INSP_KEY) || ''));
             for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
                 // Anciennes fiches : la case était une simple chaîne (classe seule).
                 const v = (d.emploi || {})[`${dayKey}_${slotKey}`];
@@ -747,24 +797,100 @@
             } catch(e){ notify(saveErrorMessage(e), "error", 8000); }
         };
 
-        // ---------- ESPACE INSPECTEUR ----------
-        async function loadAdminPass(){
-            try {
-                const d = await getDoc(adminCfgDoc());
-                if(d.exists() && d.data().passwordHash){ adminPassHash = d.data().passwordHash; return; }
-            } catch(_) {}
-            adminPassHash = await hashText(DEFAULT_ADMIN_PASS);
+        // ---------- COMPTE INSPECTEUR ----------
+        // Le même compte e-mail / mot de passe que l'application « Rapport d'Inspection » :
+        // il identifie l'inspecteur, et chaque inspecteur ne voit que les fiches de SA base.
+        function emailUser(){ return currentUser && !currentUser.isAnonymous ? currentUser : null; }
+        function updateAccountUI(){
+            const u = emailUser();
+            $('btn-account-label').innerText = u ? (u.email || 'Compte').split('@')[0] : 'Compte';
+            $('account-signed-in').classList.toggle('hidden', !u);
+            $('account-signed-out').classList.toggle('hidden', !!u);
+            if(u) $('account-email').innerText = u.email || '';
         }
-        window.openAdmin = async function(){
-            if(!$('view-admin').classList.contains('hidden')) return;
-            if(!currentUser){ notify("Connexion au serveur requise pour l'espace inspecteur.", "error"); return; }
-            if(sessionStorage.getItem('enseignants_admin_ok') !== '1'){
-                await loadAdminPass();
-                const p = await uiPrompt("Mot de passe inspecteur :", { password: true });
-                if(p === null) return;
-                if(await hashText(p) !== adminPassHash){ notify("Mot de passe incorrect.", "error"); return; }
-                sessionStorage.setItem('enseignants_admin_ok', '1');
+        window.openAccount = function(hint){
+            $('account-hint').classList.toggle('hidden', typeof hint !== 'string');
+            if(typeof hint === 'string') $('account-hint').innerText = hint;
+            $('account-error').classList.add('hidden');
+            updateAccountUI();
+            $('account-modal').classList.remove('hidden');
+        };
+        window.closeAccount = function(){ $('account-modal').classList.add('hidden'); };
+        function accountError(msg){ const e = $('account-error'); e.innerText = msg; e.classList.remove('hidden'); }
+        function authErrorMessage(code){
+            const map = {
+                'auth/invalid-email': "Adresse e-mail invalide.",
+                'auth/missing-password': "Saisissez un mot de passe.",
+                'auth/weak-password': "Mot de passe trop court (6 caractères minimum).",
+                'auth/email-already-in-use': "Cet e-mail a déjà un compte. Cliquez sur « Se connecter ».",
+                'auth/invalid-credential': "E-mail ou mot de passe incorrect.",
+                'auth/wrong-password': "Mot de passe incorrect.",
+                'auth/user-not-found': "Aucun compte avec cet e-mail. Cliquez sur « Créer un compte ».",
+                'auth/too-many-requests': "Trop de tentatives. Réessayez dans quelques minutes.",
+                'auth/network-request-failed': "Pas de connexion Internet."
+            };
+            return map[code] || ("Erreur : " + code);
+        }
+        function accountInputs(){
+            return { email: ($('account-email-input').value || '').trim(), pass: $('account-password-input').value || '' };
+        }
+        window.doSignIn = async function(){
+            if(!auth){ accountError("Connexion au serveur impossible pour le moment."); return; }
+            const { email, pass } = accountInputs();
+            if(!email || !pass){ accountError("Saisissez votre e-mail et votre mot de passe."); return; }
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                closeAccount();
+                notify("Connecté.", "success");
+                window.openAdmin();
+            } catch(e){ accountError(authErrorMessage(e.code || e.message)); }
+        };
+        window.doSignUp = async function(){
+            if(!auth){ accountError("Connexion au serveur impossible pour le moment."); return; }
+            const { email, pass } = accountInputs();
+            if(!email || !pass){ accountError("Saisissez un e-mail et un mot de passe (6 caractères min)."); return; }
+            try {
+                await createUserWithEmailAndPassword(auth, email, pass);
+                closeAccount();
+                notify("Compte créé.", "success", 5000);
+                window.openAdmin();
+            } catch(e){ accountError(authErrorMessage(e.code || e.message)); }
+        };
+        window.doResetPass = async function(){
+            if(!auth){ accountError("Connexion au serveur impossible pour le moment."); return; }
+            const { email } = accountInputs();
+            if(!email){ accountError("Saisissez d'abord votre e-mail, puis recliquez sur « Mot de passe oublié »."); return; }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                accountError("E-mail de réinitialisation envoyé : vérifiez votre boîte de réception.");
+            } catch(e){ accountError(authErrorMessage(e.code || e.message)); }
+        };
+        window.doSignOut = async function(){
+            try { await signOut(auth); } catch(_) {}
+            closeAccount();
+            notify("Déconnecté.", "info");
+        };
+        // Charge (ou crée à la première connexion) le profil de l'inspecteur : son code personnel,
+        // qui sert de clé à sa base (lien partagé ?i=CODE et champ « Code inspecteur » des fiches).
+        async function ensureInspProfile(){
+            if(myCode || !emailUser()) return;
+            const ref = inspProfileDoc(currentUser.uid);
+            const s = await getDoc(ref);
+            if(s.exists() && s.data().code){ myCode = s.data().code; }
+            else {
+                myCode = genCode();
+                await setDoc(ref, { code: myCode, email: currentUser.email || '', createdAt: serverTimestamp() });
             }
+        }
+
+        // ---------- ESPACE INSPECTEUR ----------
+        window.openAdmin = async function(){
+            if(!emailUser()){
+                openAccount("Connectez-vous avec votre compte inspecteur (le même e-mail / mot de passe que dans l'application) pour accéder à vos fiches.");
+                return;
+            }
+            try { await ensureInspProfile(); }
+            catch(e){ notify(saveErrorMessage(e), "error", 9000); return; }
             showAdmin();
         };
         function showAdmin(){
@@ -773,10 +899,21 @@
             $('admin-bar').classList.add('hidden');
             $('view-admin').classList.remove('hidden');
             $('btn-myfiche').classList.remove('hidden');
+            $('adm-share-link').value = location.origin + location.pathname + '?i=' + myCode;
+            $('adm-my-code').innerText = myCode;
+            renderAdmin();
             startAdminFeed();
         }
+        window.copyShareLink = function(){
+            const inp = $('adm-share-link');
+            inp.select(); inp.setSelectionRange(0, 300);
+            const done = () => notify("Lien copié : envoyez-le à vos enseignants.", "success");
+            if(navigator.clipboard && navigator.clipboard.writeText){
+                navigator.clipboard.writeText(inp.value).then(done).catch(() => { document.execCommand('copy'); done(); });
+            } else { document.execCommand('copy'); done(); }
+        };
         window.adminLogout = function(){
-            sessionStorage.removeItem('enseignants_admin_ok');
+            // Ferme l'espace inspecteur (sans déconnecter le compte) et revient au formulaire.
             if(unsubAdmin){ unsubAdmin(); unsubAdmin = null; }
             viewingAdminId = null;
             $('view-admin').classList.add('hidden');
@@ -786,7 +923,6 @@
             $('teacher-intro').classList.remove('hidden');
             $('teacher-actions').classList.remove('hidden');
             restoreTeacherForm();
-            notify("Espace inspecteur fermé.", "info");
         };
         function startAdminFeed(){
             if(unsubAdmin) return;
@@ -804,21 +940,36 @@
         }
         function noteOf(r){ const n = parseFloat(r.derniereNote); return isNaN(n) ? null : n; }
         function majOf(r){ return r.updatedAt && r.updatedAt.toDate ? r.updatedAt.toDate() : null; }
+        // Fiches de MA base (code inspecteur = le mien) et fiches « orphelines » (sans code).
+        function myRows(){ return adminRows.filter(r => (r.insp || '') === myCode); }
+        function legacyRows(){ return adminRows.filter(r => !r.insp); }
         function renderAdmin(){
-            // Statistiques globales (sur toutes les fiches).
-            $('stat-count').innerText = adminRows.length;
-            $('stat-eleves').innerText = adminRows.reduce((a,r) => a + (parseInt(r.totalEleves) || 0), 0);
-            const notes = adminRows.map(noteOf).filter(n => n !== null);
+            if(!myCode) return;
+            const mine = myRows();
+            // Statistiques sur la base de l'inspecteur connecté.
+            $('stat-count').innerText = mine.length;
+            $('stat-eleves').innerText = mine.reduce((a,r) => a + (parseInt(r.totalEleves) || 0), 0);
+            const notes = mine.map(noteOf).filter(n => n !== null);
             $('stat-note-avg').innerText = notes.length ? (notes.reduce((a,b) => a+b, 0) / notes.length).toFixed(2) : '—';
             $('stat-niveaux').innerHTML = NIVEAUX.map(([k, label]) => {
-                const tot = adminRows.reduce((a,r) => a + (((r.niveaux || {})[k] || {}).eleves || 0), 0);
+                const tot = mine.reduce((a,r) => a + (((r.niveaux || {})[k] || {}).eleves || 0), 0);
                 const short = label.match(/\(([^)]+)\)/) ? label.match(/\(([^)]+)\)/)[1] : label;
                 return `<span class="bg-indigo-50 text-indigo-800 rounded px-1.5 py-0.5">${escapeHtml(short)} : <b>${tot}</b></span>`;
             }).join('');
 
+            // Fiches reçues sans code (ancien lien) : proposer l'import dans sa base.
+            const legacy = legacyRows();
+            $('adm-legacy').classList.toggle('hidden', legacy.length === 0);
+            $('adm-legacy-count').innerText = legacy.length;
+            $('adm-legacy-list').innerHTML = legacy.map(r => `
+                <div class="flex items-center justify-between gap-2 border-t border-amber-200 py-1.5">
+                    <div>${escapeHtml(r.nom) || '—'} <span class="text-amber-700 text-xs">${escapeHtml(r.etablissement || '')}${r.cre ? ' — ' + escapeHtml(r.cre) : ''}</span></div>
+                    <button onclick="importFiche('${r.id}')" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded text-xs whitespace-nowrap"><i class="fas fa-download"></i> Importer</button>
+                </div>`).join('');
+
             // Filtre + tri.
             const needle = fold($('adm-search').value);
-            let rows = adminRows.filter(r => !needle ||
+            let rows = mine.filter(r => !needle ||
                 fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle));
             const mode = $('adm-sort').value;
             rows.sort((a,b) => {
@@ -829,7 +980,7 @@
                 return fold(a[key]).localeCompare(fold(b[key]));
             });
 
-            $('adm-empty').classList.toggle('hidden', adminRows.length > 0);
+            $('adm-empty').classList.toggle('hidden', mine.length > 0);
             $('adm-table-body').innerHTML = rows.map(r => `
                 <tr class="border-t hover:bg-indigo-50/40">
                     <td class="p-2.5"><button class="text-indigo-700 font-semibold hover:underline" onclick="adminView('${r.id}')">${escapeHtml(r.nom) || '—'}</button></td>
@@ -877,21 +1028,24 @@
                 if(viewingAdminId === id) adminBack();
             } catch(e){ notify(saveErrorMessage(e), "error", 8000); }
         };
-        window.changeAdminPass = async function(){
-            const p = await uiPrompt("Nouveau mot de passe inspecteur (4 caractères minimum) :", { password: true });
-            if(p === null) return;
-            if(p.trim().length < 4){ notify("Mot de passe trop court.", "error"); return; }
-            try {
-                await setDoc(adminCfgDoc(), { passwordHash: await hashText(p.trim()) });
-                adminPassHash = await hashText(p.trim());
-                notify("Mot de passe modifié.", "success");
-            } catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+        // Import d'une fiche « orpheline » (remplie sans code inspecteur) dans sa propre base.
+        window.importFiche = async function(id){
+            try { await updateDoc(ficheDoc(id), { insp: myCode }); notify("Fiche importée dans votre base.", "success"); }
+            catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+        };
+        window.importAllLegacy = async function(){
+            const legacy = legacyRows();
+            if(!legacy.length) return;
+            if(!await appConfirm(`Importer les ${legacy.length} fiche(s) sans code dans votre base ?`)) return;
+            let n = 0;
+            for(const r of legacy){ try { await updateDoc(ficheDoc(r.id), { insp: myCode }); n++; } catch(_) {} }
+            notify(`${n} fiche(s) importée(s) dans votre base.`, "success");
         };
 
         // ---------- EXPORT CSV (liste affichée : filtre et tri appliqués) ----------
         window.exportCSV = function(){
             const needle = fold($('adm-search').value);
-            const rows = adminRows.filter(r => !needle ||
+            const rows = myRows().filter(r => !needle ||
                 fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle));
             const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","CRE","Grade","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
             for(const [,label] of NIVEAUX) cols.push(label + " — classes", label + " — élèves");
@@ -961,6 +1115,10 @@
         buildForm();
         $('adm-search').addEventListener('input', renderAdmin);
         $('adm-sort').addEventListener('change', renderAdmin);
+        // Code inspecteur transmis par le lien partagé (…?i=CODE) : mémorisé pour les visites suivantes.
+        const urlInsp = (new URLSearchParams(location.search).get('i') || '').trim().toUpperCase();
+        if(urlInsp) localStorage.setItem(INSP_KEY, urlInsp);
+        if(!$('f-insp').value) $('f-insp').value = localStorage.getItem(INSP_KEY) || '';
         let connected = false;
         // Repli hors-ligne si la connexion n'aboutit pas rapidement (réseau lent, CDN bloqué…)
         setTimeout(() => { if(!connected){ setStatus(false); restoreTeacherForm(); } }, 4000);
@@ -974,7 +1132,8 @@
                 ]);
                 ({ initializeApp } = mApp);
                 ({ initializeFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, where, limit, serverTimestamp } = mFs);
-                ({ getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence } = mAuth);
+                ({ getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence,
+                   signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } = mAuth);
 
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
@@ -986,14 +1145,17 @@
                     const first = !initialResolved; initialResolved = true;
                     if(user){
                         connected = true; currentUser = user;
-                        setStatus(true);
-                        if(sessionStorage.getItem('enseignants_admin_ok') === '1' && $('view-admin').classList.contains('hidden') && !viewingAdminId) showAdmin();
+                        setStatus(true); updateAccountUI();
                         await flushPending();
                         if(!viewingAdminId && $('view-admin').classList.contains('hidden')) await restoreTeacherForm();
                     } else if(first){
                         signInAnonymously(auth).catch(() => setStatus(false));
                     } else {
-                        currentUser = null; setStatus(false);
+                        // Déconnexion du compte : fermer l'espace inspecteur et repasser en visiteur
+                        // anonyme (le formulaire enseignant reste utilisable).
+                        currentUser = null; myCode = null; updateAccountUI();
+                        window.adminLogout();
+                        signInAnonymously(auth).catch(() => setStatus(false));
                     }
                 });
             } catch(_) { setStatus(false); }
