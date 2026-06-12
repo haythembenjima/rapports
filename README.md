@@ -56,10 +56,14 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
   l'application « Rapport d'Inspection » ; bouton **Compte** pour le créer). Chaque inspecteur
   reçoit un **code personnel** et un **lien à partager** (`enseignants.html?i=CODE`) : les fiches
   remplies via son lien arrivent directement dans **sa** base, et chaque inspecteur ne voit que
-  les siennes. Liste en temps réel, recherche, tri, statistiques (total d'élèves, élèves par
-  niveau, moyenne des dernières notes), consultation / correction / **impression** d'une fiche,
-  suppression, **export CSV**. Les fiches reçues **sans code** (ancien lien) peuvent être
-  **importées** dans sa base en un clic.
+  les siennes. Liste en temps réel, recherche, tri, **filtres avancés** (CRE, niveau enseigné,
+  plage de notes, dernière note avant une date — enseignants jamais notés inclus —, et jour/créneau
+  de l'emploi du temps : « qui enseigne le mardi de 14 h à 16 h ? » avec la classe et la salle
+  affichées), statistiques (total d'élèves, élèves par niveau, moyenne des dernières notes),
+  consultation / correction / **impression** d'une fiche, suppression, **export CSV** (de la liste
+  filtrée). Les fiches reçues **sans code** (ancien lien) peuvent être **importées** dans sa base
+  en un clic. Le champ « Code inspecteur » de la fiche est **en lecture seule** : il ne se remplit
+  que par le lien partagé.
 - Les fiches sont stockées dans le **même projet Firebase** que l'application, dans la zone
   publique partagée : `artifacts/default-app-id/public/data/enseignants`.
 
