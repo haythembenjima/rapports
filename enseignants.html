@@ -32,6 +32,8 @@
         .fiche-table th, .fiche-table td { border: 1px solid #9ca3af; padding: 2px 4px; }
         .fiche-table th { background-color: #eef2ff; font-weight: bold; }
         .fiche-table input { width: 100%; border: none; background: transparent; text-align: center; padding: 4px 2px; }
+        /* Champ « salle » sous la classe dans chaque case de l'emploi du temps */
+        .fiche-table .cell-salle { border-top: 1px dotted #cbd5e1 !important; color: #475569; font-size: .68rem; padding: 2px; }
 
         @media print {
             @page { margin: 0; size: A4 portrait; }
@@ -47,6 +49,7 @@
             input::placeholder { color: transparent !important; }
             .fiche-table th, .fiche-table td { border: 1px solid #000; }
             .fiche-table th { background-color: #f3f4f6 !important; }
+            .fiche-table .cell-salle { border-top: 1px dotted #555 !important; font-weight: normal; }
             .print-tight { margin-bottom: .35rem !important; }
         }
 
@@ -95,7 +98,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <button id="btn-myfiche" onclick="exitAdmin()" class="hidden bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-file-lines"></i> Les fiches</button>
+                <button id="btn-myfiche" onclick="openAdmin()" class="hidden bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-list"></i> Liste des fiches</button>
                 <button onclick="openAdmin()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-user-shield"></i> Espace inspecteur</button>
             </div>
         </div>
@@ -158,8 +161,8 @@
                 <p class="text-sm mt-1">Année scolaire : <b id="f-annee"></b></p>
             </div>
 
-            <!-- 1. État civil -->
-            <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-2 print-tight">1. État civil</h2>
+            <!-- 1. Informations personnelles -->
+            <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-2 print-tight">1. Informations personnelles</h2>
             <div class="grid md:grid-cols-2 gap-x-6 gap-y-2 mb-4 print-tight">
                 <label class="block">
                     <span class="text-sm font-semibold">Nom et prénom <span class="text-red-600">*</span></span>
@@ -183,20 +186,32 @@
                     <span class="text-sm font-semibold">Adresse e-mail</span>
                     <input id="f-email" type="email" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. prenom.nom@gmail.com">
                 </label>
-                <label class="block">
-                    <span class="text-sm font-semibold">Nom et prénom du conjoint</span>
-                    <input id="f-conjoint-nom" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="— si marié(e)">
-                </label>
-                <label class="block">
-                    <span class="text-sm font-semibold">Profession du conjoint</span>
-                    <input id="f-conjoint-prof" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. enseignante, médecin…">
-                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
+                    <label class="block">
+                        <span class="text-sm font-semibold">État civil</span>
+                        <select id="f-etat-civil" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+                            <option value="">—</option>
+                            <option>Célibataire</option>
+                            <option>Marié(e)</option>
+                            <option>Divorcé(e)</option>
+                            <option>Veuf(ve)</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Nom et prénom du conjoint</span>
+                        <input id="f-conjoint-nom" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="— si marié(e)">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Profession du conjoint</span>
+                        <input id="f-conjoint-prof" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. enseignante, médecin…">
+                    </label>
+                </div>
             </div>
 
             <!-- 2. Situation professionnelle -->
             <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-2 print-tight">2. Situation professionnelle</h2>
             <div class="grid md:grid-cols-2 gap-x-6 gap-y-2 mb-4 print-tight">
-                <div class="grid grid-cols-3 gap-3 md:col-span-2">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
                     <label class="block">
                         <span class="text-sm font-semibold">Type d'établissement</span>
                         <select id="f-etab-type" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
@@ -204,7 +219,7 @@
                             <option>Collège technique</option>
                         </select>
                     </label>
-                    <label class="block col-span-2">
+                    <label class="block sm:col-span-2">
                         <span class="text-sm font-semibold">Établissement <span class="text-red-600">*</span></span>
                         <input id="f-etab" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Lycée Ibn Khaldoun — Msaken">
                     </label>
@@ -214,11 +229,26 @@
                     <input id="f-cre" type="text" list="cre-list" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Sousse">
                     <datalist id="cre-list"></datalist>
                 </label>
-                <label class="block">
-                    <span class="text-sm font-semibold">Date de recrutement</span>
-                    <input id="f-date-recrutement" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
-                </label>
-                <div class="grid grid-cols-3 gap-3 md:col-span-2">
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="block">
+                        <span class="text-sm font-semibold">Grade</span>
+                        <select id="f-grade" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+                            <option value="">—</option>
+                            <option>PES</option>
+                            <option>PP</option>
+                            <option>PPHC</option>
+                            <option>PPE</option>
+                            <option>PPE CE</option>
+                            <option>A2</option>
+                            <option>Autre</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Date de recrutement</span>
+                        <input id="f-date-recrutement" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
                     <label class="block">
                         <span class="text-sm font-semibold">Dernière note pédagogique (/20)</span>
                         <input id="f-note" type="number" min="0" max="20" step="0.25" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. 14,5">
@@ -236,11 +266,11 @@
 
             <!-- 3. Emploi du temps -->
             <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-1 print-tight">3. Emploi du temps hebdomadaire</h2>
-            <p class="no-print ui-sans text-xs text-gray-500 mb-2">Indiquez dans chaque case la classe (et la salle si vous voulez), ex. « 3 EG 2 — S14 ». Laissez vide si pas de séance.</p>
+            <p class="no-print ui-sans text-xs text-gray-500 mb-2">Dans chaque case : en haut la <b>classe</b> avec son numéro (ex. « 4ème EG2 », « 9ème T1 »), en bas la <b>salle</b>. Laissez vide si pas de séance.</p>
             <div class="table-scroll mb-4 print-tight">
                 <table class="fiche-table text-sm">
                     <thead>
-                        <tr id="edt-head"><th class="w-24">Horaire</th></tr>
+                        <tr id="edt-head"><th class="w-20">Jour</th></tr>
                     </thead>
                     <tbody id="edt-body"></tbody>
                 </table>
@@ -289,6 +319,9 @@
     <!-- ===================== VUE ADMIN (espace inspecteur) ===================== -->
     <main id="view-admin" class="hidden ui-sans max-w-6xl mx-auto p-4">
 
+        <!-- Erreur d'accès (règles Firestore) -->
+        <div id="adm-error" class="hidden bg-red-100 border border-red-300 text-red-800 rounded-xl px-4 py-3 my-3 text-sm"></div>
+
         <!-- Statistiques -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-3">
             <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
@@ -335,6 +368,7 @@
                     <thead class="bg-gray-50 text-gray-600 text-left">
                         <tr>
                             <th class="p-2.5">Nom et prénom</th>
+                            <th class="p-2.5">Grade</th>
                             <th class="p-2.5">Établissement</th>
                             <th class="p-2.5">CRE</th>
                             <th class="p-2.5">Téléphone</th>
@@ -472,20 +506,25 @@
 
         // ---------- CONSTRUCTION DU FORMULAIRE (emploi du temps, niveaux, listes) ----------
         function buildForm(){
-            // Emploi du temps : lignes = créneaux de 2h, colonnes = jours.
+            // Emploi du temps : lignes = jours, colonnes = créneaux de 2h.
+            // Chaque case contient deux champs : la classe (en haut) et la salle (en bas).
             const head = $('edt-head');
-            for(const [,dayLabel] of DAYS){
-                const th = document.createElement('th'); th.innerText = dayLabel; head.appendChild(th);
+            for(const [, slotLabel] of SLOTS){
+                const th = document.createElement('th'); th.innerText = slotLabel; head.appendChild(th);
             }
             const body = $('edt-body');
-            for(const [slotKey, slotLabel] of SLOTS){
+            for(const [dayKey, dayLabel] of DAYS){
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<th class="text-xs whitespace-nowrap">${slotLabel}</th>` +
-                    DAYS.map(([dayKey]) => `<td><input id="edt-${dayKey}-${slotKey}" type="text" list="classes-list" class="text-xs" placeholder="—"></td>`).join('');
+                tr.innerHTML = `<th class="text-xs whitespace-nowrap">${dayLabel}</th>` +
+                    SLOTS.map(([slotKey]) => `<td>
+                        <input id="edt-${dayKey}-${slotKey}" type="text" list="classes-list" class="text-xs" placeholder="classe">
+                        <input id="edt-${dayKey}-${slotKey}-salle" type="text" class="text-xs cell-salle" placeholder="salle">
+                    </td>`).join('');
                 body.appendChild(tr);
             }
-            // Suggestions de classes dans les cases de l'emploi du temps.
-            $('classes-list').innerHTML = ['2ème ES','3ème EG','4ème EG','8ème','9ème'].map(v => `<option value="${v}">`).join('');
+            // Suggestions de classes détaillées (avec numéro) dans les cases de l'emploi du temps.
+            const stems = ['2ème ES','3ème EG','4ème EG','8ème T','9ème T'];
+            $('classes-list').innerHTML = stems.flatMap(s => [1,2,3,4].map(n => s + n)).map(v => `<option value="${v}">`).join('');
 
             // Niveaux enseignés.
             $('niv-body').innerHTML = NIVEAUX.map(([k, label]) => `
@@ -524,11 +563,13 @@
                 lieuNaissance: $('f-lieu-naissance').value.trim(),
                 telephone: $('f-tel').value.trim(),
                 email: $('f-email').value.trim(),
+                etatCivil: $('f-etat-civil').value,
                 conjointNom: $('f-conjoint-nom').value.trim(),
                 conjointProfession: $('f-conjoint-prof').value.trim(),
                 etabType: $('f-etab-type').value,
                 etablissement: $('f-etab').value.trim(),
                 cre: $('f-cre').value.trim(),
+                grade: $('f-grade').value,
                 dateRecrutement: $('f-date-recrutement').value,
                 derniereNote: $('f-note').value,
                 inspecteur: $('f-inspecteur').value.trim(),
@@ -538,8 +579,9 @@
                 niveaux: {}
             };
             for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
-                const v = $(`edt-${dayKey}-${slotKey}`).value.trim();
-                if(v) d.emploi[`${dayKey}_${slotKey}`] = v;
+                const classe = $(`edt-${dayKey}-${slotKey}`).value.trim();
+                const salle  = $(`edt-${dayKey}-${slotKey}-salle`).value.trim();
+                if(classe || salle) d.emploi[`${dayKey}_${slotKey}`] = { classe, salle };
             }
             for(const [k] of NIVEAUX){
                 const classes = parseInt($(`niv-${k}-classes`).value) || 0;
@@ -555,17 +597,23 @@
             $('f-lieu-naissance').value = d.lieuNaissance || '';
             $('f-tel').value = d.telephone || '';
             $('f-email').value = d.email || '';
+            $('f-etat-civil').value = d.etatCivil || '';
             $('f-conjoint-nom').value = d.conjointNom || '';
             $('f-conjoint-prof').value = d.conjointProfession || '';
             $('f-etab-type').value = d.etabType || 'Lycée';
             $('f-etab').value = d.etablissement || '';
             $('f-cre').value = d.cre || '';
+            $('f-grade').value = d.grade || '';
             $('f-date-recrutement').value = d.dateRecrutement || '';
             $('f-note').value = d.derniereNote ?? '';
             $('f-inspecteur').value = d.inspecteur || '';
             $('f-date-note').value = d.dateNote || '';
-            for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS)
-                $(`edt-${dayKey}-${slotKey}`).value = (d.emploi || {})[`${dayKey}_${slotKey}`] || '';
+            for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
+                // Anciennes fiches : la case était une simple chaîne (classe seule).
+                const v = (d.emploi || {})[`${dayKey}_${slotKey}`];
+                $(`edt-${dayKey}-${slotKey}`).value = (typeof v === 'string' ? v : (v && v.classe) || '');
+                $(`edt-${dayKey}-${slotKey}-salle`).value = (v && typeof v === 'object' && v.salle) || '';
+            }
             for(const [k] of NIVEAUX){
                 const n = (d.niveaux || {})[k] || {};
                 $(`niv-${k}-classes`).value = n.classes || '';
@@ -727,11 +775,6 @@
             $('btn-myfiche').classList.remove('hidden');
             startAdminFeed();
         }
-        window.exitAdmin = function(){
-            // Retour à la liste si une fiche est ouverte, sinon… on est déjà sur la liste.
-            if(!viewingAdminId && !$('view-admin').classList.contains('hidden')) return;
-            adminBack();
-        };
         window.adminLogout = function(){
             sessionStorage.removeItem('enseignants_admin_ok');
             if(unsubAdmin){ unsubAdmin(); unsubAdmin = null; }
@@ -748,9 +791,16 @@
         function startAdminFeed(){
             if(unsubAdmin) return;
             unsubAdmin = onSnapshot(query(fichesCol()), snap => {
+                $('adm-error').classList.add('hidden');
                 adminRows = snap.docs.map(s => ({ id: s.id, ...s.data() }));
                 renderAdmin();
-            }, e => notify(saveErrorMessage(e), "error", 8000));
+            }, e => {
+                unsubAdmin = null;   // l'écouteur est arrêté par l'erreur : autoriser une nouvelle tentative
+                $('adm-error').innerHTML = '<i class="fas fa-triangle-exclamation"></i> <b>Lecture refusée par le serveur.</b> ' +
+                    'Les règles de sécurité Firestore doivent autoriser la zone publique : ouvrez la console Firebase → Firestore Database → Règles, ' +
+                    'collez le modèle fourni dans le README du dépôt, puis « Publier ». Revenez ensuite sur cette page.';
+                $('adm-error').classList.remove('hidden');
+            });
         }
         function noteOf(r){ const n = parseFloat(r.derniereNote); return isNaN(n) ? null : n; }
         function majOf(r){ return r.updatedAt && r.updatedAt.toDate ? r.updatedAt.toDate() : null; }
@@ -783,6 +833,7 @@
             $('adm-table-body').innerHTML = rows.map(r => `
                 <tr class="border-t hover:bg-indigo-50/40">
                     <td class="p-2.5"><button class="text-indigo-700 font-semibold hover:underline" onclick="adminView('${r.id}')">${escapeHtml(r.nom) || '—'}</button></td>
+                    <td class="p-2.5">${escapeHtml(r.grade || '—')}</td>
                     <td class="p-2.5">${escapeHtml(r.etablissement)}<span class="text-gray-400 text-xs"> (${escapeHtml(r.etabType || '')})</span></td>
                     <td class="p-2.5">${escapeHtml(r.cre)}</td>
                     <td class="p-2.5 whitespace-nowrap">${escapeHtml(r.telephone)}</td>
@@ -842,17 +893,19 @@
             const needle = fold($('adm-search').value);
             const rows = adminRows.filter(r => !needle ||
                 fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle));
-            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","Conjoint","Profession du conjoint","Type d'établissement","Établissement","CRE","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
+            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","CRE","Grade","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
             for(const [,label] of NIVEAUX) cols.push(label + " — classes", label + " — élèves");
             cols.push("Total élèves","Emploi du temps","Année scolaire","Code","Mise à jour");
             const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
             const lines = [cols.map(esc).join(';')];
+            // Une case d'emploi du temps peut être une chaîne (anciennes fiches) ou {classe, salle}.
+            const cellTxt = v => typeof v === 'string' ? v : v ? ((v.classe || '') + (v.salle ? ` (salle ${v.salle})` : '')) : '';
             for(const r of rows){
                 const edt = DAYS.map(([dk, dl]) => {
-                    const cells = SLOTS.map(([sk, sl]) => (r.emploi || {})[`${dk}_${sk}`] ? `${sl} : ${(r.emploi || {})[`${dk}_${sk}`]}` : null).filter(Boolean);
+                    const cells = SLOTS.map(([sk, sl]) => (r.emploi || {})[`${dk}_${sk}`] ? `${sl} : ${cellTxt((r.emploi || {})[`${dk}_${sk}`])}` : null).filter(Boolean);
                     return cells.length ? `${dl} → ${cells.join(' | ')}` : null;
                 }).filter(Boolean).join('  //  ');
-                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, r.cre, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
+                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, r.cre, r.grade, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
                 for(const [k] of NIVEAUX){
                     const n = (r.niveaux || {})[k] || {};
                     line.push(n.classes || 0, n.eleves || 0);

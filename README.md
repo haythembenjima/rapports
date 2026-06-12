@@ -65,9 +65,12 @@ enseignés avec le nombre d'élèves** : 2ème ES, 3ème EG, 4ème EG, 8ème et 
 
 ### Règles de sécurité Firestore requises
 
-Dans la [console Firebase](https://console.firebase.google.com/) (**Firestore Database → Règles**),
-la zone publique doit être ouverte aux utilisateurs connectés (la page connecte chaque visiteur
-de façon anonyme, comme l'application principale) :
+Dans la console Firebase (**Firestore Database → Règles** — lien direct :
+[console.firebase.google.com/project/inspection-gestion/firestore/rules](https://console.firebase.google.com/project/inspection-gestion/firestore/rules)),
+remplacez les règles par le modèle ci-dessous puis cliquez sur **Publier**. La zone publique doit
+être ouverte aux utilisateurs connectés (la page connecte chaque visiteur de façon anonyme,
+comme l'application principale) — sans cela, l'enregistrement des fiches affiche
+« Accès refusé par le serveur » et la liste de l'espace inspecteur reste vide :
 
 ```
 rules_version = '2';
