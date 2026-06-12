@@ -50,10 +50,14 @@ enseignés avec le nombre d'élèves** : 2ème ES, 3ème EG, 4ème EG, 8ème et 
   et modifier sa fiche depuis n'importe quel appareil (bouton « J'ai déjà une fiche »).
 - Hors ligne, la fiche est gardée sur l'appareil puis **envoyée automatiquement** à la reconnexion ;
   un brouillon est sauvegardé en continu pendant la saisie.
-- **Espace inspecteur** (bouton en haut à droite — mot de passe par défaut `admin2026`, à changer
-  dès la première utilisation) : liste des fiches en temps réel, recherche, tri, statistiques
-  (total d'élèves, élèves par niveau, moyenne des dernières notes), consultation / correction /
-  **impression** d'une fiche, suppression, **export CSV**.
+- **Espace inspecteur** : connexion avec un **compte e-mail / mot de passe** (le même que dans
+  l'application « Rapport d'Inspection » ; bouton **Compte** pour le créer). Chaque inspecteur
+  reçoit un **code personnel** et un **lien à partager** (`enseignants.html?i=CODE`) : les fiches
+  remplies via son lien arrivent directement dans **sa** base, et chaque inspecteur ne voit que
+  les siennes. Liste en temps réel, recherche, tri, statistiques (total d'élèves, élèves par
+  niveau, moyenne des dernières notes), consultation / correction / **impression** d'une fiche,
+  suppression, **export CSV**. Les fiches reçues **sans code** (ancien lien) peuvent être
+  **importées** dans sa base en un clic.
 - Les fiches sont stockées dans le **même projet Firebase** que l'application, dans la zone
   publique partagée : `artifacts/default-app-id/public/data/enseignants`.
 
@@ -89,10 +93,11 @@ service cloud.firestore {
 ```
 
 > ⚠️ Avec ces règles simples, toute personne disposant du lien peut techniquement lire la zone
-> publique : le mot de passe de l'espace inspecteur protège l'**interface**, pas la base elle-même.
-> C'est le même modèle que la configuration partagée de l'application. Pour durcir l'accès en
-> lecture, il faudrait restreindre `enseignants/{fiche}` à l'UID du compte de l'inspecteur (mais
-> la récupération de fiche par code personnel ne fonctionnerait plus entre appareils).
+> publique : le compte inspecteur contrôle l'**interface**, et la séparation des bases entre
+> inspecteurs (par code) est appliquée par l'interface, pas par le serveur. C'est le même modèle
+> que la configuration partagée de l'application. Pour durcir l'accès en lecture, il faudrait
+> restreindre `enseignants/{fiche}` à l'UID de l'inspecteur (mais la récupération de fiche par
+> code personnel ne fonctionnerait plus entre appareils).
 
 ## Construire l'application Windows (.exe)
 
