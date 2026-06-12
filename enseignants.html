@@ -328,6 +328,21 @@
                                class="mt-0.5 w-full border border-gray-200 bg-gray-100 text-gray-600 rounded px-2 py-1.5 uppercase cursor-not-allowed" placeholder="via le lien">
                     </label>
                 </div>
+                <div class="grid grid-cols-2 gap-3 md:col-span-2">
+                    <label class="block">
+                        <span class="text-sm font-semibold">Matricule CNRPS</span>
+                        <input id="f-matricule" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. 0123456/8">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Situation administrative</span>
+                        <select id="f-situation" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+                            <option value="">—</option>
+                            <option>Titulaire</option>
+                            <option>Contractuel(le)</option>
+                            <option>Autre</option>
+                        </select>
+                    </label>
+                </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
                     <label class="block">
                         <span class="text-sm font-semibold">Dernière note pédagogique (/20)</span>
@@ -421,10 +436,12 @@
             <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
                 <div class="text-3xl font-bold text-indigo-700" id="stat-count">0</div>
                 <div class="text-xs text-gray-500 mt-1">Fiches enseignants</div>
+                <div class="text-[10px] text-gray-400" id="stat-visites"></div>
             </div>
             <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
                 <div class="text-3xl font-bold text-emerald-600" id="stat-eleves">0</div>
                 <div class="text-xs text-gray-500 mt-1">Élèves au total</div>
+                <div class="text-[10px] text-gray-400" id="stat-etabs"></div>
             </div>
             <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
                 <div class="text-3xl font-bold text-amber-600" id="stat-note-avg">—</div>
@@ -433,6 +450,24 @@
             <div class="bg-white rounded-xl shadow-sm border p-4">
                 <div class="text-xs text-gray-500 mb-1">Élèves par niveau</div>
                 <div id="stat-niveaux" class="flex flex-wrap gap-1 text-[11px]"></div>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-3">
+            <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+                <div class="text-3xl font-bold text-sky-600" id="stat-age">—</div>
+                <div class="text-xs text-gray-500 mt-1">Âge moyen</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+                <div class="text-3xl font-bold text-violet-600" id="stat-anciennete">—</div>
+                <div class="text-xs text-gray-500 mt-1">Ancienneté moyenne</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+                <div class="text-3xl font-bold text-rose-600" id="stat-charge">—</div>
+                <div class="text-xs text-gray-500 mt-1">Charge hebdo moyenne</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border p-4">
+                <div class="text-xs text-gray-500 mb-1">Par grade</div>
+                <div id="stat-grades" class="flex flex-wrap gap-1 text-[11px]"></div>
             </div>
         </div>
 
@@ -790,6 +825,8 @@
                 etablissement: $('f-etab').value.trim(),
                 cre: $('f-cre').value.trim(),
                 grade: $('f-grade').value,
+                matricule: $('f-matricule').value.trim(),
+                situationAdmin: $('f-situation').value,
                 dateRecrutement: $('f-date-recrutement').value,
                 derniereNote: $('f-note').value,
                 inspecteur: $('f-inspecteur').value.trim(),
@@ -824,6 +861,8 @@
             $('f-etab').value = d.etablissement || '';
             $('f-cre').value = d.cre || '';
             $('f-grade').value = d.grade || '';
+            $('f-matricule').value = d.matricule || '';
+            $('f-situation').value = d.situationAdmin || '';
             $('f-date-recrutement').value = d.dateRecrutement || '';
             $('f-note').value = d.derniereNote ?? '';
             $('f-inspecteur').value = d.inspecteur || '';
@@ -1174,6 +1213,15 @@
         function isIncomplete(r){
             return !Object.keys(r.emploi || {}).length || !(parseInt(r.totalEleves) || 0);
         }
+        // Charge hebdomadaire approximative (heures/semaine) : 2 h par case, 1 h si la précision le dit.
+        function chargeOf(r){
+            let h = 0;
+            for(const v of Object.values(r.emploi || {})){
+                const prec = (v && typeof v === 'object' && v.prec) || '';
+                h += /1\s*h/i.test(prec) ? 1 : 2;
+            }
+            return h;
+        }
         const SUIVI_LABELS = { a_visiter: 'À visiter', programmee: 'Programmée', faite: 'Faite' };
         const SUIVI_BADGE  = { a_visiter: 'bg-red-100 text-red-700', programmee: 'bg-amber-100 text-amber-700', faite: 'bg-green-100 text-green-700' };
         function suiviBadge(id){
@@ -1234,6 +1282,27 @@
                 const tot = mine.reduce((a,r) => a + levelSums(r)[k], 0);
                 return `<span class="bg-indigo-50 text-indigo-800 rounded px-1.5 py-0.5">${NIVEAU_SHORT[k]} : <b>${tot}</b></span>`;
             }).join('');
+            // Statistiques enrichies : visites, établissements, âge, ancienneté, charge, grades.
+            let nProg = 0, nFaites = 0;
+            for(const r of mine){ const s = (suiviMap[r.id] || {}).statut; if(s === 'programmee') nProg++; else if(s === 'faite') nFaites++; }
+            $('stat-visites').innerText = (nProg || nFaites) ? `${nProg} programmée(s) · ${nFaites} faite(s)` : '';
+            const etabs = new Set(mine.map(r => fold(r.etablissement || '')).filter(Boolean));
+            $('stat-etabs').innerText = etabs.size ? `dans ${etabs.size} établissement(s)` : '';
+            const avgYears = arr => {
+                const v = arr.filter(Boolean).map(d => (Date.now() - new Date(d).getTime()) / 31557600000).filter(n => n > 0 && n < 80);
+                return v.length ? v.reduce((a,b) => a+b, 0) / v.length : null;
+            };
+            const age = avgYears(mine.map(r => r.dateNaissance));
+            $('stat-age').innerText = age ? age.toFixed(0) + ' ans' : '—';
+            const anc = avgYears(mine.map(r => r.dateRecrutement));
+            $('stat-anciennete').innerText = anc ? anc.toFixed(0) + ' ans' : '—';
+            const charges = mine.map(chargeOf).filter(h => h > 0);
+            $('stat-charge').innerText = charges.length ? (Math.round(charges.reduce((a,b) => a+b, 0) / charges.length * 10) / 10) + ' h' : '—';
+            const gradeCounts = {};
+            for(const r of mine){ const g = r.grade || '—'; gradeCounts[g] = (gradeCounts[g] || 0) + 1; }
+            $('stat-grades').innerHTML = Object.entries(gradeCounts).sort((a,b) => b[1] - a[1])
+                .map(([g, n]) => `<span class="bg-violet-50 text-violet-800 rounded px-1.5 py-0.5">${escapeHtml(g)} : <b>${n}</b></span>`).join('')
+                || '<span class="text-gray-300">—</span>';
 
             // Fiches reçues sans code (ancien lien) : proposer l'import dans sa base.
             const legacy = legacyRows();
@@ -1484,7 +1553,7 @@
             const needle = fold($('adm-search').value);
             const rows = applyFilters(myRows().filter(r => !needle ||
                 fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle)));
-            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","CRE","Grade","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
+            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","CRE","Grade","Matricule CNRPS","Situation","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
             for(const [,label] of NIVEAUX) cols.push(label + " — élèves");
             cols.push("Total élèves","Classes (élèves)","Emploi du temps","Année scolaire","Code","Mise à jour");
             const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
@@ -1496,7 +1565,7 @@
                     const cells = SLOTS.map(([sk, sl]) => (r.emploi || {})[`${dk}_${sk}`] ? `${sl} : ${cellTxt((r.emploi || {})[`${dk}_${sk}`])}` : null).filter(Boolean);
                     return cells.length ? `${dl} → ${cells.join(' | ')}` : null;
                 }).filter(Boolean).join('  //  ');
-                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, r.cre, r.grade, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
+                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, r.cre, r.grade, r.matricule, r.situationAdmin, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
                 const sums = levelSums(r);
                 for(const [k] of NIVEAUX) line.push(sums[k]);
                 const classesTxt = Object.entries(r.classes || {}).map(([name, v]) => `${name}: ${v}`).join(' | ');
