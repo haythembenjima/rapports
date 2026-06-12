@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /artifacts/{appId}/public/data/enseignants/{fiche} {
+      allow read, write: if request.auth != null;
+    }
+    match /artifacts/{appId}/public/data/enseignants_corbeille/{fiche} {
+      allow read, write: if request.auth != null;
+    }
+    match /artifacts/{appId}/public/data/enseignants_config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && docId == 'insp_' + request.auth.uid;
+    }
+    match /artifacts/{appId}/public/data/enseignants_suivi/{ficheId} {
+      allow read, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.auth != null && request.resource.data.ownerUid == request.auth.uid && (resource.data.ownerUid == request.auth.uid || !('ownerUid' in resource.data));
+    }
+  }
+}

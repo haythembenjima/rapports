@@ -1099,7 +1099,7 @@
             if(s.exists() && s.data().code){ myCode = s.data().code; }
             else {
                 myCode = genCode();
-                await setDoc(ref, { code: myCode, email: currentUser.email || '', createdAt: serverTimestamp() });
+                await setDoc(ref, { code: myCode, email: currentUser.email || '', ownerUid: currentUser.uid, createdAt: serverTimestamp() });
             }
         }
 
@@ -1155,7 +1155,12 @@
         };
         function startAdminFeed(){
             if(unsubAdmin || !db) return;
-            unsubSuivi = onSnapshot(query(suiviCol(), where('insp', '==', myCode)), snap => {
+            // Migration douce : les suivis créés avant l'ajout d'ownerUid en sont dotés
+            // (possible tant que les anciennes règles sont en place ; sans effet ensuite).
+            getDocs(query(suiviCol(), where('insp', '==', myCode))).then(snap => {
+                snap.docs.forEach(s => { if(!s.data().ownerUid) updateDoc(s.ref, { ownerUid: currentUser.uid }).catch(() => {}); });
+            }).catch(() => {});
+            unsubSuivi = onSnapshot(query(suiviCol(), where('ownerUid', '==', currentUser.uid)), snap => {
                 suiviMap = {};
                 snap.docs.forEach(s => { suiviMap[s.id] = s.data(); });
                 renderAdmin();
@@ -1417,6 +1422,7 @@
             if(!db){ notify("Hors connexion : suivi non enregistré.", "error"); return; }
             const data = {
                 insp: myCode,
+                ownerUid: currentUser.uid,
                 statut: $('suivi-statut').value,
                 datePrevue: $('suivi-date-prevue').value,
                 dateFaite: $('suivi-date-faite').value,
@@ -1551,7 +1557,8 @@
                 try { await setDoc(ficheDoc(id), deserTimestamps(data)); ok++; } catch(_) {}
             }
             for(const [id, s] of Object.entries(payload.suivi || {})){
-                try { await setDoc(suiviDoc(id), deserTimestamps(s)); } catch(_) {}
+                // Le suivi restauré est rattaché au compte qui restaure (exigé par les règles durcies).
+                try { await setDoc(suiviDoc(id), { ...deserTimestamps(s), ownerUid: currentUser.uid }); } catch(_) {}
             }
             notify(`${ok} fiche(s) restaurée(s).`, "success", 7000);
         }

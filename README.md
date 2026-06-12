@@ -106,62 +106,42 @@ service cloud.firestore {
 }
 ```
 
-### Règles durcies (recommandées dès que le suivi des visites est utilisé)
+### Règles durcies (recommandées — protègent le suivi privé)
 
-La version ci-dessus suffit pour démarrer, mais elle laisse toute la zone publique lisible et
-modifiable par quiconque est connecté. La version ci-dessous ajoute des protections **côté
-serveur** : le **suivi des visites (remarques privées)** n'est lisible que par l'inspecteur
-concerné, chaque inspecteur ne peut écrire que **son** profil, la **corbeille** est réservée aux
-comptes inspecteurs, et la **suppression** d'une fiche est réservée à l'inspecteur dont le code
-figure sur la fiche (une fiche « sans code » doit d'abord être importée). Les fiches elles-mêmes
-restent lisibles/modifiables par les utilisateurs connectés — nécessaire pour que l'enseignant
-retrouve sa fiche par code depuis n'importe quel appareil.
+La version simple ci-dessus suffit pour démarrer. Celle ci-dessous ajoute, **côté serveur** :
+le **suivi des visites (remarques privées)** n'est lisible et modifiable que par le compte de
+l'inspecteur qui l'a créé, et le **profil inspecteur** (code personnel) n'est modifiable que par
+son propre compte. Les fiches et la corbeille restent accessibles à tout utilisateur connecté —
+nécessaire au fonctionnement côté enseignants (retrouver sa fiche par code entre appareils).
+
+Le texte exact à coller est dans le fichier [`firestore.rules`](./firestore.rules) — une règle
+par ligne pour éviter les coupures au copier-coller ; ouvrez-le en mode « Raw » pour le copier :
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Rapports d'inspection (application) : privés, chacun les siens
     match /artifacts/{appId}/users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-
-    // Fiches enseignants : lecture/création/mise à jour pour tout utilisateur connecté ;
-    // suppression réservée à l'inspecteur dont le code figure sur la fiche
     match /artifacts/{appId}/public/data/enseignants/{fiche} {
-      allow read, create, update: if request.auth != null;
-      allow delete: if request.auth != null &&
-        get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code == resource.data.insp;
+      allow read, write: if request.auth != null;
     }
-
-    // Profils inspecteurs : chacun écrit le sien
+    match /artifacts/{appId}/public/data/enseignants_corbeille/{fiche} {
+      allow read, write: if request.auth != null;
+    }
     match /artifacts/{appId}/public/data/enseignants_config/{docId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && docId == 'insp_' + request.auth.uid;
     }
-
-    // Suivi des visites (remarques privées) : seul l'inspecteur concerné y accède
     match /artifacts/{appId}/public/data/enseignants_suivi/{ficheId} {
-      allow read, delete: if request.auth != null &&
-        resource.data.insp == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code;
-      allow create, update: if request.auth != null &&
-        request.resource.data.insp == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code;
-    }
-
-    // Corbeille : réservée aux comptes inspecteurs
-    match /artifacts/{appId}/public/data/enseignants_corbeille/{ficheId} {
-      allow read, write: if request.auth != null &&
-        exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid));
+      allow read, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.auth != null && request.resource.data.ownerUid == request.auth.uid && (resource.data.ownerUid == request.auth.uid || !('ownerUid' in resource.data));
     }
   }
 }
 ```
-
-> Remarque : même durcies, ces règles laissent les **fiches** lisibles par toute personne
-> connectée (c'est ce qui permet le code personnel des enseignants). La page n'expose ces données
-> qu'aux inspecteurs, mais un utilisateur technique pourrait les lire via l'API : n'y mettez pas
-> d'informations sensibles au-delà de ce qui est demandé.
 
 ## Construire l'application Windows (.exe)
 
