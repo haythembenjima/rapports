@@ -117,42 +117,31 @@ figure sur la fiche (une fiche « sans code » doit d'abord être importée). Le
 restent lisibles/modifiables par les utilisateurs connectés — nécessaire pour que l'enseignant
 retrouve sa fiche par code depuis n'importe quel appareil.
 
+Le texte exact à coller est dans le fichier [`firestore.rules`](./firestore.rules)
+(chaque règle tient sur **une seule ligne** pour éviter les coupures au copier-coller,
+surtout depuis un téléphone — ouvrez le fichier en mode « Raw » pour copier) :
+
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Rapports d'inspection (application) : privés, chacun les siens
     match /artifacts/{appId}/users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-
-    // Fiches enseignants : lecture/création/mise à jour pour tout utilisateur connecté ;
-    // suppression réservée à l'inspecteur dont le code figure sur la fiche
     match /artifacts/{appId}/public/data/enseignants/{fiche} {
       allow read, create, update: if request.auth != null;
-      allow delete: if request.auth != null &&
-        get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code == resource.data.insp;
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code == resource.data.insp;
     }
-
-    // Profils inspecteurs : chacun écrit le sien
     match /artifacts/{appId}/public/data/enseignants_config/{docId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && docId == 'insp_' + request.auth.uid;
     }
-
-    // Suivi des visites (remarques privées) : seul l'inspecteur concerné y accède
     match /artifacts/{appId}/public/data/enseignants_suivi/{ficheId} {
-      allow read, delete: if request.auth != null &&
-        resource.data.insp == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code;
-      allow create, update: if request.auth != null &&
-        request.resource.data.insp == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code;
+      allow read, delete: if request.auth != null && resource.data.insp == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code;
+      allow create, update: if request.auth != null && request.resource.data.insp == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code;
     }
-
-    // Corbeille : réservée aux comptes inspecteurs
     match /artifacts/{appId}/public/data/enseignants_corbeille/{ficheId} {
-      allow read, write: if request.auth != null &&
-        exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid));
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid));
     }
   }
 }
