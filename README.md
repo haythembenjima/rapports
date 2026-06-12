@@ -67,6 +67,14 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
 - Les fiches sont stockées dans le **même projet Firebase** que l'application, dans la zone
   publique partagée : `artifacts/default-app-id/public/data/enseignants`.
 
+- **Suivi des visites** (privé) : statut à visiter / programmée / faite, dates et remarques
+  personnelles de l'inspecteur sur chaque fiche ; **vue Planning** hebdomadaire des enseignants
+  visitables créneau par créneau ; alerte « **nouvelles fiches** » depuis la dernière connexion.
+- **Corbeille** (suppression réversible) et **Sauvegarde / Restauration** de toute la base en JSON.
+- **Site installable** (PWA) : sur téléphone, menu du navigateur → « Ajouter à l'écran d'accueil » ;
+  sur PC, icône d'installation dans la barre d'adresse. L'icône « Enseignants » s'ouvre alors
+  comme une application.
+
 ### Mise en ligne (GitHub Pages)
 
 1. Sur GitHub : **Settings → Pages → Source : « Deploy from a branch » → branche `main`, dossier `/ (root)`**.
@@ -98,12 +106,62 @@ service cloud.firestore {
 }
 ```
 
-> ⚠️ Avec ces règles simples, toute personne disposant du lien peut techniquement lire la zone
-> publique : le compte inspecteur contrôle l'**interface**, et la séparation des bases entre
-> inspecteurs (par code) est appliquée par l'interface, pas par le serveur. C'est le même modèle
-> que la configuration partagée de l'application. Pour durcir l'accès en lecture, il faudrait
-> restreindre `enseignants/{fiche}` à l'UID de l'inspecteur (mais la récupération de fiche par
-> code personnel ne fonctionnerait plus entre appareils).
+### Règles durcies (recommandées dès que le suivi des visites est utilisé)
+
+La version ci-dessus suffit pour démarrer, mais elle laisse toute la zone publique lisible et
+modifiable par quiconque est connecté. La version ci-dessous ajoute des protections **côté
+serveur** : le **suivi des visites (remarques privées)** n'est lisible que par l'inspecteur
+concerné, chaque inspecteur ne peut écrire que **son** profil, la **corbeille** est réservée aux
+comptes inspecteurs, et la **suppression** d'une fiche est réservée à l'inspecteur dont le code
+figure sur la fiche (une fiche « sans code » doit d'abord être importée). Les fiches elles-mêmes
+restent lisibles/modifiables par les utilisateurs connectés — nécessaire pour que l'enseignant
+retrouve sa fiche par code depuis n'importe quel appareil.
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Rapports d'inspection (application) : privés, chacun les siens
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Fiches enseignants : lecture/création/mise à jour pour tout utilisateur connecté ;
+    // suppression réservée à l'inspecteur dont le code figure sur la fiche
+    match /artifacts/{appId}/public/data/enseignants/{fiche} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if request.auth != null &&
+        get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code == resource.data.insp;
+    }
+
+    // Profils inspecteurs : chacun écrit le sien
+    match /artifacts/{appId}/public/data/enseignants_config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && docId == 'insp_' + request.auth.uid;
+    }
+
+    // Suivi des visites (remarques privées) : seul l'inspecteur concerné y accède
+    match /artifacts/{appId}/public/data/enseignants_suivi/{ficheId} {
+      allow read, delete: if request.auth != null &&
+        resource.data.insp == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code;
+      allow create, update: if request.auth != null &&
+        request.resource.data.insp == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid)).data.code;
+    }
+
+    // Corbeille : réservée aux comptes inspecteurs
+    match /artifacts/{appId}/public/data/enseignants_corbeille/{ficheId} {
+      allow read, write: if request.auth != null &&
+        exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/enseignants_config/insp_$(request.auth.uid));
+    }
+  }
+}
+```
+
+> Remarque : même durcies, ces règles laissent les **fiches** lisibles par toute personne
+> connectée (c'est ce qui permet le code personnel des enseignants). La page n'expose ces données
+> qu'aux inspecteurs, mais un utilisateur technique pourrait les lire via l'API : n'y mettez pas
+> d'informations sensibles au-delà de ce qui est demandé.
 
 ## Construire l'application Windows (.exe)
 

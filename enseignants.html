@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#4338ca">
+    <link rel="manifest" href="enseignants.webmanifest">
+    <link rel="icon" type="image/png" href="icons/enseignants-192.png">
+    <link rel="apple-touch-icon" href="icons/enseignants-192.png">
     <title>Base des enseignants — Gestion</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
@@ -431,6 +435,11 @@
             <p class="text-xs text-indigo-700 mt-1">Les fiches remplies via ce lien arrivent directement dans <b>votre</b> base (code inspecteur : <b id="adm-my-code"></b>).</p>
         </div>
 
+        <!-- Nouvelles fiches depuis la dernière visite de l'inspecteur -->
+        <div id="adm-new" class="hidden bg-blue-50 border border-blue-300 text-blue-900 rounded-xl px-4 py-2.5 my-3 text-sm">
+            <i class="fas fa-bell"></i> <b id="adm-new-count"></b> depuis votre dernière visite — repérez-les au badge <span class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">nouvelle</span>.
+        </div>
+
         <!-- Statistiques -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-3">
             <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
@@ -664,6 +673,7 @@
         let unsubAdmin = null;         // désabonnement du snapshot admin (fiches)
         let unsubSuivi = null;         // désabonnement du snapshot suivi
         let myCode = null;             // code personnel de l'inspecteur connecté (la clé de SA base)
+        let newCutoff = null;          // repère « nouvelles fiches » : date de la dernière ouverture de l'espace
 
         // ---------- PETITS UTILITAIRES ----------
         const $ = (id) => document.getElementById(id);
@@ -1112,6 +1122,12 @@
             $('btn-myfiche').classList.remove('hidden');
             $('adm-share-link').value = location.origin + location.pathname + '?i=' + myCode;
             $('adm-my-code').innerText = myCode;
+            // Repère « nouvelles fiches » : tout ce qui a été créé depuis la dernière ouverture.
+            if(newCutoff === null){
+                const key = 'enseignants_lastseen_' + myCode;
+                newCutoff = parseInt(localStorage.getItem(key)) || 0;
+                localStorage.setItem(key, String(Date.now()));
+            }
             renderAdmin();
             startAdminFeed();
         }
@@ -1139,7 +1155,7 @@
         };
         function startAdminFeed(){
             if(unsubAdmin || !db) return;
-            unsubSuivi = onSnapshot(query(suiviCol()), snap => {
+            unsubSuivi = onSnapshot(query(suiviCol(), where('insp', '==', myCode)), snap => {
                 suiviMap = {};
                 snap.docs.forEach(s => { suiviMap[s.id] = s.data(); });
                 renderAdmin();
@@ -1330,13 +1346,19 @@
             });
             $('flt-count').innerText = `${rows.length} / ${mine.length} fiche(s) affichée(s)`;
 
+            // Nouvelles fiches arrivées depuis la dernière ouverture de l'espace inspecteur.
+            const isNew = r => newCutoff > 0 && r.createdAt && r.createdAt.toMillis && r.createdAt.toMillis() > newCutoff;
+            const nNew = mine.filter(isNew).length;
+            $('adm-new').classList.toggle('hidden', nNew === 0);
+            $('adm-new-count').innerText = `${nNew} nouvelle(s) fiche(s)`;
+
             // Quand un jour/créneau est filtré, la séance correspondante s'affiche sous le nom.
             const fJour = $('flt-jour').value, fSlot = $('flt-slot').value;
             const showSessions = !!(fJour || fSlot);
             $('adm-empty').classList.toggle('hidden', mine.length > 0);
             $('adm-table-body').innerHTML = rows.map(r => `
                 <tr class="border-t hover:bg-indigo-50/40">
-                    <td class="p-2.5"><button class="text-indigo-700 font-semibold hover:underline" onclick="adminView('${r.id}')">${escapeHtml(r.nom) || '—'}</button>${isIncomplete(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-700" title="Emploi du temps ou effectifs manquants">incomplète</span>' : ''}${showSessions ? `<div class="text-[11px] text-emerald-700 mt-0.5"><i class="fas fa-clock"></i> ${escapeHtml(edtSessions(r, fJour, fSlot).join('  ·  '))}</div>` : ''}</td>
+                    <td class="p-2.5"><button class="text-indigo-700 font-semibold hover:underline" onclick="adminView('${r.id}')">${escapeHtml(r.nom) || '—'}</button>${isNew(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">nouvelle</span>' : ''}${isIncomplete(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-700" title="Emploi du temps ou effectifs manquants">incomplète</span>' : ''}${showSessions ? `<div class="text-[11px] text-emerald-700 mt-0.5"><i class="fas fa-clock"></i> ${escapeHtml(edtSessions(r, fJour, fSlot).join('  ·  '))}</div>` : ''}</td>
                     <td class="p-2.5">${escapeHtml(r.grade || '—')}</td>
                     <td class="p-2.5">${escapeHtml(r.etablissement)}${r.etabType ? `<span class="text-gray-400 text-xs"> (${escapeHtml(r.etabType)})</span>` : ''}</td>
                     <td class="p-2.5">${escapeHtml(r.cre)}</td>
@@ -1630,6 +1652,10 @@
             e.target.value = '';
             if(f) restoreBackup(f);
         });
+        // Site installable (PWA) : le service worker ne gère QUE les fichiers du site enseignants.
+        if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+            navigator.serviceWorker.register('enseignants-sw.js').catch(() => {});
+        }
         // Banc d'essai local (page ouverte avec #test) : espace inspecteur alimenté par des données
         // factices, sans connexion — utilisé par les tests automatiques uniquement.
         if(location.hash === '#test'){
