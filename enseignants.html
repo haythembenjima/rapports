@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
-    <title>Base des enseignants — Économie &amp; Gestion</title>
+    <title>Base des enseignants — Gestion</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <style>
@@ -32,8 +32,10 @@
         .fiche-table th, .fiche-table td { border: 1px solid #9ca3af; padding: 2px 4px; }
         .fiche-table th { background-color: #eef2ff; font-weight: bold; }
         .fiche-table input { width: 100%; border: none; background: transparent; text-align: center; padding: 4px 2px; }
-        /* Champ « salle » sous la classe dans chaque case de l'emploi du temps */
-        .fiche-table .cell-salle { border-top: 1px dotted #cbd5e1 !important; color: #475569; font-size: .68rem; padding: 2px; }
+        /* Sous-ligne de chaque case de l'emploi du temps : salle + précision (quinzaine A/B, groupe, 1 h…) */
+        .fiche-table .cell-sub { display: flex; border-top: 1px dotted #cbd5e1; }
+        .fiche-table .cell-sub input { color: #475569; font-size: .65rem; padding: 2px 1px; }
+        .fiche-table .cell-sub input + input { border-left: 1px dotted #cbd5e1 !important; }
 
         @media print {
             @page { margin: 0; size: A4 portrait; }
@@ -49,7 +51,9 @@
             input::placeholder { color: transparent !important; }
             .fiche-table th, .fiche-table td { border: 1px solid #000; }
             .fiche-table th { background-color: #f3f4f6 !important; }
-            .fiche-table .cell-salle { border-top: 1px dotted #555 !important; font-weight: normal; }
+            .fiche-table .cell-sub { border-top: 1px dotted #555; }
+            .fiche-table .cell-sub input { font-weight: normal; }
+            .fiche-table .cell-sub input + input { border-left: 1px dotted #555 !important; }
             .print-tight { margin-bottom: .35rem !important; }
         }
 
@@ -119,7 +123,7 @@
             <div class="flex items-center gap-3">
                 <i class="fas fa-address-card text-2xl"></i>
                 <div>
-                    <div class="font-bold leading-tight">Base des enseignants — Économie &amp; Gestion</div>
+                    <div class="font-bold leading-tight">Base des enseignants — Gestion</div>
                     <div id="status-indicator" class="text-xs opacity-90"><i class="fas fa-circle-notch fa-spin"></i> Connexion…</div>
                 </div>
             </div>
@@ -151,8 +155,8 @@
             <p class="font-semibold text-indigo-800 mb-1"><i class="fas fa-circle-info"></i> Comment remplir votre fiche ?</p>
             <ol class="list-decimal ml-5 space-y-0.5">
                 <li>Complétez toutes les rubriques ci-dessous (les champs marqués <span class="text-red-600 font-bold">*</span> sont obligatoires).</li>
-                <li>Remplissez votre <b>emploi du temps</b> (classe et salle dans chaque case, ex. « 3 EG 2 — S14 »).</li>
-                <li>Indiquez en bas les <b>niveaux enseignés</b> et le <b>nombre d'élèves</b> par niveau.</li>
+                <li>Remplissez votre <b>emploi du temps</b> : classe, salle et précision éventuelle (semaine A/B, groupe, séance d'1 h) dans chaque case.</li>
+                <li>En bas, la <b>liste de vos classes</b> se remplit automatiquement : indiquez le <b>nombre d'élèves</b> de chacune.</li>
                 <li>Cliquez sur <b>Enregistrer</b> : un <b>code personnel</b> vous sera attribué pour modifier votre fiche plus tard.</li>
             </ol>
             <p class="mt-2 text-xs text-gray-500"><i class="fas fa-link"></i> Si vous avez ouvert le <b>lien envoyé par votre inspecteur</b>, son code est déjà rempli automatiquement dans « Code inspecteur » : votre fiche arrivera directement dans sa base.</p>
@@ -184,7 +188,7 @@
             <!-- En-tête officiel -->
             <div class="text-center mb-4 print-tight">
                 <p class="font-bold">République Tunisienne — Ministère de l'Éducation</p>
-                <p class="text-sm">Inspection pédagogique — Discipline : Économie &amp; Gestion</p>
+                <p class="text-sm">Inspection pédagogique — Discipline : Gestion</p>
                 <h1 class="text-xl md:text-2xl font-bold underline mt-2">FICHE DE RENSEIGNEMENTS — ENSEIGNANT(E)</h1>
                 <p class="text-sm mt-1">Année scolaire : <b id="f-annee"></b></p>
             </div>
@@ -298,7 +302,9 @@
 
             <!-- 3. Emploi du temps -->
             <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-1 print-tight">3. Emploi du temps hebdomadaire</h2>
-            <p class="no-print ui-sans text-xs text-gray-500 mb-2">Dans chaque case : en haut la <b>classe</b> avec son numéro (ex. « 4ème EG2 », « 9ème T1 »), en bas la <b>salle</b>. Laissez vide si pas de séance.</p>
+            <p class="no-print ui-sans text-xs text-gray-500 mb-2">Dans chaque case : la <b>classe</b> en haut (ex. « 4ème EG2 », « 9ème T1 »), puis en bas la <b>salle</b> et la <b>précision</b>
+                si la séance n'est pas hebdomadaire ordinaire : « Semaine A », « Semaine B » (quinzaine), « G1 », « G2 » (groupe), « 1h (1ère heure) », « 1h (2ème heure) »… ou une combinaison (ex. « Sem. A — G1 »).
+                Si <b>deux classes se partagent le créneau</b> (1 h chacune ou alternance par quinzaine), écrivez-les séparées par « / » (ex. « 3 EG1 / 3 EG2 »). Laissez vide si pas de séance.</p>
             <div class="table-scroll mb-4 print-tight">
                 <table class="fiche-table text-sm">
                     <thead>
@@ -308,26 +314,28 @@
                 </table>
             </div>
             <datalist id="classes-list"></datalist>
+            <datalist id="prec-list"></datalist>
 
-            <!-- 4. Niveaux enseignés -->
-            <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-1 print-tight">4. Niveaux enseignés et nombre d'élèves</h2>
+            <!-- 4. Classes enseignées (liste automatique depuis l'emploi du temps) -->
+            <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-1 print-tight">4. Classes enseignées et nombre d'élèves par classe</h2>
+            <p class="no-print ui-sans text-xs text-gray-500 mb-2">La liste des classes se remplit <b>automatiquement</b> à partir de votre emploi du temps ci-dessus. Indiquez seulement le <b>nombre d'élèves</b> de chaque classe.</p>
+            <p id="classes-empty" class="text-xs italic text-gray-400 mb-2">— Remplissez d'abord les cases « classe » de l'emploi du temps : la liste apparaîtra ici. —</p>
             <div class="table-scroll mb-3 print-tight">
-                <table class="fiche-table text-sm md:w-2/3">
+                <table id="classes-table" class="hidden fiche-table text-sm md:w-2/3">
                     <thead>
-                        <tr><th class="text-left pl-2">Niveau</th><th class="w-32">Nombre de classes</th><th class="w-32">Nombre d'élèves</th></tr>
+                        <tr><th class="text-left pl-2">Classe</th><th class="w-40">Nombre d'élèves</th></tr>
                     </thead>
-                    <tbody id="niv-body"></tbody>
+                    <tbody id="classes-body"></tbody>
                     <tfoot>
                         <tr class="font-bold bg-indigo-50">
-                            <td class="pl-2">Total</td>
-                            <td class="text-center" id="niv-total-classes">0</td>
-                            <td class="text-center" id="niv-total">0</td>
+                            <td class="pl-2">Total — <span id="classes-count">0</span> classe(s)</td>
+                            <td class="text-center" id="cls-total">0</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
 
-            <p class="text-xs text-gray-500 print-tight">Fait le <span id="f-today"></span> — document destiné à l'inspection pédagogique (Économie &amp; Gestion).</p>
+            <p class="text-xs text-gray-500 print-tight">Fait le <span id="f-today"></span> — document destiné à l'inspection pédagogique (Gestion).</p>
         </div>
 
         <!-- Boutons enseignant -->
@@ -345,7 +353,7 @@
                 <i class="fas fa-eraser"></i> Vider le formulaire
             </button>
         </div>
-        <p class="no-print ui-sans text-center text-xs text-gray-400 mb-8">Base des enseignants — Économie &amp; Gestion · les données sont synchronisées avec l'application « Rapport d'Inspection ».</p>
+        <p class="no-print ui-sans text-center text-xs text-gray-400 mb-8">Base des enseignants — Gestion · les données sont synchronisées avec l'application « Rapport d'Inspection ».</p>
     </main>
 
     <!-- ===================== VUE ADMIN (espace inspecteur) ===================== -->
@@ -552,10 +560,11 @@
         const setSaved  = (v) => localStorage.setItem(SAVED_KEY, JSON.stringify(v));
         const clearSaved= () => localStorage.removeItem(SAVED_KEY);
 
-        // ---------- CONSTRUCTION DU FORMULAIRE (emploi du temps, niveaux, listes) ----------
+        // ---------- CONSTRUCTION DU FORMULAIRE (emploi du temps, classes, listes) ----------
         function buildForm(){
-            // Emploi du temps : lignes = jours, colonnes = créneaux de 2h.
-            // Chaque case contient deux champs : la classe (en haut) et la salle (en bas).
+            // Emploi du temps : lignes = jours, colonnes = créneaux de 2h. Chaque case contient
+            // trois champs : la classe (en haut), puis la salle et la précision (quinzaine A/B,
+            // groupe G1/G2, séance d'une heure…) en bas.
             const head = $('edt-head');
             for(const [, slotLabel] of SLOTS){
                 const th = document.createElement('th'); th.innerText = slotLabel; head.appendChild(th);
@@ -566,40 +575,71 @@
                 tr.innerHTML = `<th class="text-xs whitespace-nowrap">${dayLabel}</th>` +
                     SLOTS.map(([slotKey]) => `<td>
                         <input id="edt-${dayKey}-${slotKey}" type="text" list="classes-list" class="text-xs" placeholder="classe">
-                        <input id="edt-${dayKey}-${slotKey}-salle" type="text" class="text-xs cell-salle" placeholder="salle">
+                        <div class="cell-sub">
+                            <input id="edt-${dayKey}-${slotKey}-salle" type="text" placeholder="salle">
+                            <input id="edt-${dayKey}-${slotKey}-prec" type="text" list="prec-list" placeholder="précision">
+                        </div>
                     </td>`).join('');
                 body.appendChild(tr);
             }
             // Suggestions de classes détaillées (avec numéro) dans les cases de l'emploi du temps.
             const stems = ['2ème ES','3ème EG','4ème EG','8ème T','9ème T'];
             $('classes-list').innerHTML = stems.flatMap(s => [1,2,3,4].map(n => s + n)).map(v => `<option value="${v}">`).join('');
-
-            // Niveaux enseignés.
-            $('niv-body').innerHTML = NIVEAUX.map(([k, label]) => `
-                <tr>
-                    <td class="pl-2">${label}</td>
-                    <td><input id="niv-${k}-classes" type="number" min="0" max="20" placeholder="0"></td>
-                    <td><input id="niv-${k}-eleves" type="number" min="0" max="500" placeholder="0"></td>
-                </tr>`).join('');
+            // Suggestions de précisions : quinzaine (semaine A/B), groupes, séances d'une heure.
+            const PRECISIONS = ["Semaine A","Semaine B","Quinzaine","G1","G2","G1/G2","Sem. A — G1","Sem. A — G2","Sem. B — G1","Sem. B — G2","1h (1ère heure)","1h (2ème heure)","1h + 1h"];
+            $('prec-list').innerHTML = PRECISIONS.map(v => `<option value="${v}">`).join('');
 
             $('cre-list').innerHTML = CRE_LIST.map(v => `<option value="${v}">`).join('');
             $('f-annee').innerText = anneeScolaire();
             $('f-today').innerText = new Date().toLocaleDateString('fr-FR');
 
-            // Total d'élèves / de classes recalculé en direct + brouillon automatique.
+            // Brouillon automatique + liste des classes recalculée quand l'emploi du temps change.
             document.querySelectorAll('#sheet input, #sheet select').forEach(el => {
-                el.addEventListener('input', () => { el.classList.remove('field-error'); computeTotal(); scheduleDraft(); });
+                el.addEventListener('input', () => {
+                    el.classList.remove('field-error');
+                    if(/^edt-[a-z]+-\d\d-\d\d$/.test(el.id)) renderClasses();   // champ « classe » d'une case
+                    scheduleDraft();
+                });
+            });
+            renderClasses();
+        }
+
+        // ---------- LISTE AUTOMATIQUE DES CLASSES (déduite de l'emploi du temps) ----------
+        let classEleves = {};   // effectifs saisis, mémorisés par classe (clé normalisée)
+        function classesFromEDT(){
+            const found = [], seen = new Set();
+            for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
+                // « 3 EG1 / 3 EG2 » = créneau partagé entre deux classes.
+                for(let part of $(`edt-${dayKey}-${slotKey}`).value.split('/')){
+                    part = part.trim().replace(/\s+/g, ' ');
+                    if(!part) continue;
+                    const key = part.toUpperCase().replace(/[.~*\[\]]/g, '');   // clé sûre pour Firestore
+                    if(!seen.has(key)){ seen.add(key); found.push({ key, label: part }); }
+                }
+            }
+            return found;
+        }
+        function renderClasses(){
+            // Mémorise les effectifs déjà saisis avant de reconstruire les lignes.
+            document.querySelectorAll('#classes-body input').forEach(inp => { classEleves[inp.dataset.key] = inp.value; });
+            const list = classesFromEDT();
+            $('classes-empty').classList.toggle('hidden', list.length > 0);
+            $('classes-table').classList.toggle('hidden', list.length === 0);
+            $('classes-body').innerHTML = list.map(c => `
+                <tr>
+                    <td class="pl-2">${escapeHtml(c.label)}</td>
+                    <td><input type="number" min="0" max="60" data-key="${escapeHtml(c.key)}" value="${escapeHtml(classEleves[c.key] || '')}" placeholder="0"></td>
+                </tr>`).join('');
+            document.querySelectorAll('#classes-body input').forEach(inp => {
+                inp.addEventListener('input', () => { inp.classList.remove('field-error'); computeTotal(); scheduleDraft(); });
             });
             computeTotal();
         }
         function computeTotal(){
-            let te = 0, tc = 0;
-            for(const [k] of NIVEAUX){
-                te += parseInt($(`niv-${k}-eleves`).value) || 0;
-                tc += parseInt($(`niv-${k}-classes`).value) || 0;
-            }
-            $('niv-total').innerText = te;
-            $('niv-total-classes').innerText = tc;
+            let te = 0, n = 0;
+            document.querySelectorAll('#classes-body input').forEach(inp => { te += parseInt(inp.value) || 0; n++; });
+            $('classes-count').innerText = n;
+            $('cls-total').innerText = te;
             return te;
         }
 
@@ -625,18 +665,17 @@
                 insp: $('f-insp').value.trim().toUpperCase(),
                 anneeScolaire: anneeScolaire(),
                 emploi: {},
-                niveaux: {}
+                classes: {}
             };
             for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
                 const classe = $(`edt-${dayKey}-${slotKey}`).value.trim();
                 const salle  = $(`edt-${dayKey}-${slotKey}-salle`).value.trim();
-                if(classe || salle) d.emploi[`${dayKey}_${slotKey}`] = { classe, salle };
+                const prec   = $(`edt-${dayKey}-${slotKey}-prec`).value.trim();
+                if(classe || salle || prec) d.emploi[`${dayKey}_${slotKey}`] = { classe, salle, prec };
             }
-            for(const [k] of NIVEAUX){
-                const classes = parseInt($(`niv-${k}-classes`).value) || 0;
-                const eleves  = parseInt($(`niv-${k}-eleves`).value) || 0;
-                if(classes || eleves) d.niveaux[k] = { classes, eleves };
-            }
+            document.querySelectorAll('#classes-body input').forEach(inp => {
+                d.classes[inp.dataset.key] = parseInt(inp.value) || 0;
+            });
             d.totalEleves = computeTotal();
             return d;
         }
@@ -663,14 +702,14 @@
                 const v = (d.emploi || {})[`${dayKey}_${slotKey}`];
                 $(`edt-${dayKey}-${slotKey}`).value = (typeof v === 'string' ? v : (v && v.classe) || '');
                 $(`edt-${dayKey}-${slotKey}-salle`).value = (v && typeof v === 'object' && v.salle) || '';
+                $(`edt-${dayKey}-${slotKey}-prec`).value = (v && typeof v === 'object' && v.prec) || '';
             }
-            for(const [k] of NIVEAUX){
-                const n = (d.niveaux || {})[k] || {};
-                $(`niv-${k}-classes`).value = n.classes || '';
-                $(`niv-${k}-eleves`).value = n.eleves || '';
-            }
+            // Effectifs par classe : on repart de la fiche chargée (pas des valeurs à l'écran).
+            classEleves = {};
+            for(const [k, v] of Object.entries(d.classes || {})) classEleves[k] = v ? String(v) : '';
+            $('classes-body').innerHTML = '';
+            renderClasses();
             if(d.anneeScolaire) $('f-annee').innerText = d.anneeScolaire;
-            computeTotal();
             document.querySelectorAll('#sheet .field-error').forEach(el => el.classList.remove('field-error'));
         }
         window.clearForm = async function(ask){
@@ -940,6 +979,22 @@
         }
         function noteOf(r){ const n = parseFloat(r.derniereNote); return isNaN(n) ? null : n; }
         function majOf(r){ return r.updatedAt && r.updatedAt.toDate ? r.updatedAt.toDate() : null; }
+        // Élèves par niveau d'une fiche : déduits du premier chiffre du nom de chaque classe
+        // (« 3 EG2 » → 3ème EG). Les anciennes fiches utilisaient un champ « niveaux » direct.
+        function levelSums(r){
+            const sums = { '2ES': 0, '3EG': 0, '4EG': 0, '8T': 0, '9T': 0 };
+            const cls = r.classes || {};
+            if(Object.keys(cls).length){
+                for(const [name, v] of Object.entries(cls)){
+                    const digit = (String(name).match(/[2-9]/) || [])[0];
+                    const k = { '2':'2ES', '3':'3EG', '4':'4EG', '8':'8T', '9':'9T' }[digit];
+                    if(k) sums[k] += parseInt(v) || 0;
+                }
+            } else {
+                for(const [k] of NIVEAUX) sums[k] = parseInt((((r.niveaux || {})[k]) || {}).eleves) || 0;
+            }
+            return sums;
+        }
         // Fiches de MA base (code inspecteur = le mien) et fiches « orphelines » (sans code).
         function myRows(){ return adminRows.filter(r => (r.insp || '') === myCode); }
         function legacyRows(){ return adminRows.filter(r => !r.insp); }
@@ -952,7 +1007,7 @@
             const notes = mine.map(noteOf).filter(n => n !== null);
             $('stat-note-avg').innerText = notes.length ? (notes.reduce((a,b) => a+b, 0) / notes.length).toFixed(2) : '—';
             $('stat-niveaux').innerHTML = NIVEAUX.map(([k, label]) => {
-                const tot = mine.reduce((a,r) => a + (((r.niveaux || {})[k] || {}).eleves || 0), 0);
+                const tot = mine.reduce((a,r) => a + levelSums(r)[k], 0);
                 const short = label.match(/\(([^)]+)\)/) ? label.match(/\(([^)]+)\)/)[1] : label;
                 return `<span class="bg-indigo-50 text-indigo-800 rounded px-1.5 py-0.5">${escapeHtml(short)} : <b>${tot}</b></span>`;
             }).join('');
@@ -1048,23 +1103,22 @@
             const rows = myRows().filter(r => !needle ||
                 fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle));
             const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","CRE","Grade","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
-            for(const [,label] of NIVEAUX) cols.push(label + " — classes", label + " — élèves");
-            cols.push("Total élèves","Emploi du temps","Année scolaire","Code","Mise à jour");
+            for(const [,label] of NIVEAUX) cols.push(label + " — élèves");
+            cols.push("Total élèves","Classes (élèves)","Emploi du temps","Année scolaire","Code","Mise à jour");
             const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
             const lines = [cols.map(esc).join(';')];
-            // Une case d'emploi du temps peut être une chaîne (anciennes fiches) ou {classe, salle}.
-            const cellTxt = v => typeof v === 'string' ? v : v ? ((v.classe || '') + (v.salle ? ` (salle ${v.salle})` : '')) : '';
+            // Une case d'emploi du temps peut être une chaîne (anciennes fiches) ou {classe, salle, prec}.
+            const cellTxt = v => typeof v === 'string' ? v : v ? ((v.classe || '') + (v.salle ? ` (salle ${v.salle})` : '') + (v.prec ? ` [${v.prec}]` : '')) : '';
             for(const r of rows){
                 const edt = DAYS.map(([dk, dl]) => {
                     const cells = SLOTS.map(([sk, sl]) => (r.emploi || {})[`${dk}_${sk}`] ? `${sl} : ${cellTxt((r.emploi || {})[`${dk}_${sk}`])}` : null).filter(Boolean);
                     return cells.length ? `${dl} → ${cells.join(' | ')}` : null;
                 }).filter(Boolean).join('  //  ');
                 const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, r.cre, r.grade, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
-                for(const [k] of NIVEAUX){
-                    const n = (r.niveaux || {})[k] || {};
-                    line.push(n.classes || 0, n.eleves || 0);
-                }
-                line.push(r.totalEleves || 0, edt, r.anneeScolaire || '', r.code || '', majOf(r) ? majOf(r).toLocaleDateString('fr-FR') : '');
+                const sums = levelSums(r);
+                for(const [k] of NIVEAUX) line.push(sums[k]);
+                const classesTxt = Object.entries(r.classes || {}).map(([name, v]) => `${name}: ${v}`).join(' | ');
+                line.push(r.totalEleves || 0, classesTxt, edt, r.anneeScolaire || '', r.code || '', majOf(r) ? majOf(r).toLocaleDateString('fr-FR') : '');
                 lines.push(line.map(esc).join(';'));
             }
             const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });

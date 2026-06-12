@@ -43,8 +43,10 @@ Site compagnon pour constituer une **base de données des enseignants** de la di
 chaque enseignant ouvre le lien et remplit sa fiche — état civil (nom, naissance, téléphone,
 e-mail), conjoint et sa profession, établissement (lycée ou collège technique), commissariat
 régional d'éducation, date de recrutement, dernière note avec l'inspecteur et sa date,
-**emploi du temps** du lundi au samedi (8 h → 18 h, séances de 2 h), et en bas les **niveaux
-enseignés avec le nombre d'élèves** : 2ème ES, 3ème EG, 4ème EG, 8ème et 9ème.
+**emploi du temps** du lundi au samedi (8 h → 18 h, séances de 2 h — avec salle et précision :
+quinzaine semaine A/B, groupes G1/G2, séances d'une heure, créneau partagé entre deux classes),
+et en bas la **liste des classes enseignées, déduite automatiquement de l'emploi du temps**,
+avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8ème et 9ème).
 
 - À l'enregistrement, l'enseignant reçoit un **code personnel** (6 caractères) pour retrouver
   et modifier sa fiche depuis n'importe quel appareil (bouton « J'ai déjà une fiche »).
