@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Base des enseignants — Économie &amp; Gestion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <style>
+        body { font-family: "Times New Roman", Times, serif; background-color: #f3f4f6; }
+        .ui-sans { font-family: ui-sans-serif, system-ui, sans-serif; }
+        input::placeholder, textarea::placeholder { font-style: italic; color: #a0aec0; font-weight: normal; }
+
+        /* Fix Chrome Autofill */
+        input:-webkit-autofill, select:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 1000px white inset !important;
+            -webkit-text-fill-color: black !important;
+        }
+
+        /* Champ requis non rempli (validation visuelle) */
+        .field-error { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+
+        /* Toast notifications */
+        #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: .5rem; font-family: ui-sans-serif, system-ui, sans-serif; }
+        .toast { min-width: 240px; max-width: 360px; padding: .75rem 1rem; border-radius: .5rem; color: #fff; box-shadow: 0 10px 25px rgba(0,0,0,.15); font-size: .85rem; display: flex; align-items: center; gap: .5rem; animation: toastIn .25s ease; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(20px);} to { opacity: 1; transform: translateX(0);} }
+        .toast-success { background: #16a34a; } .toast-error { background: #dc2626; } .toast-info { background: #2563eb; } .toast-warn { background: #d97706; }
+
+        /* Tableaux de la fiche (emploi du temps, niveaux) */
+        .fiche-table { border-collapse: collapse; width: 100%; }
+        .fiche-table th, .fiche-table td { border: 1px solid #9ca3af; padding: 2px 4px; }
+        .fiche-table th { background-color: #eef2ff; font-weight: bold; }
+        .fiche-table input { width: 100%; border: none; background: transparent; text-align: center; padding: 4px 2px; }
+        /* Champ « salle » sous la classe dans chaque case de l'emploi du temps */
+        .fiche-table .cell-salle { border-top: 1px dotted #cbd5e1 !important; color: #475569; font-size: .68rem; padding: 2px; }
+
+        @media print {
+            @page { margin: 0; size: A4 portrait; }
+            body { margin: 1.2cm !important; background-color: white; font-size: 10pt; line-height: 1.15; -webkit-print-color-adjust: exact; }
+            .no-print, #toast-container, #view-admin, #confirm-modal, #prompt-modal { display: none !important; }
+            #view-form { display: block !important; }
+            #sheet { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
+            input, select { border: none !important; background: transparent !important; font-weight: bold; appearance: none; -webkit-appearance: none; padding: 0; }
+            input[type="date"]::-webkit-inner-spin-button, input[type="date"]::-webkit-calendar-picker-indicator { display: none; -webkit-appearance: none; }
+            input[type="date"] { -moz-appearance: textfield; }
+            input[type="number"] { -moz-appearance: textfield; }
+            input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+            input::placeholder { color: transparent !important; }
+            .fiche-table th, .fiche-table td { border: 1px solid #000; }
+            .fiche-table th { background-color: #f3f4f6 !important; }
+            .fiche-table .cell-salle { border-top: 1px dotted #555 !important; font-weight: normal; }
+            .print-tight { margin-bottom: .35rem !important; }
+        }
+
+        /* Affichage mobile : tableaux défilables horizontalement */
+        @media screen and (max-width: 760px) {
+            .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .table-scroll .fiche-table { min-width: 720px; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="toast-container"></div>
+
+    <!-- Modale de confirmation (jamais confirm() natif : perte de focus dans les WebView) -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <p id="confirm-message" class="text-gray-800 mb-5"></p>
+            <div class="flex justify-end gap-3">
+                <button id="confirm-cancel" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Annuler</button>
+                <button id="confirm-ok" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale de saisie (mot de passe, code fiche…) -->
+    <div id="prompt-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <p id="prompt-label" class="text-gray-800 mb-3 font-semibold"></p>
+            <input id="prompt-input" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-5" autocomplete="off">
+            <div class="flex justify-end gap-3">
+                <button id="prompt-cancel" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Annuler</button>
+                <button id="prompt-ok" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre supérieure -->
+    <nav class="no-print ui-sans bg-indigo-700 text-white shadow-lg">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-address-card text-2xl"></i>
+                <div>
+                    <div class="font-bold leading-tight">Base des enseignants — Économie &amp; Gestion</div>
+                    <div id="status-indicator" class="text-xs opacity-90"><i class="fas fa-circle-notch fa-spin"></i> Connexion…</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-myfiche" onclick="openAdmin()" class="hidden bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-list"></i> Liste des fiches</button>
+                <button onclick="openAdmin()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-user-shield"></i> Espace inspecteur</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Bandeaux d'état -->
+    <div id="offline-banner" class="hidden no-print ui-sans max-w-5xl mx-auto mt-3 px-4">
+        <div class="bg-orange-100 border border-orange-300 text-orange-800 rounded-lg px-4 py-2 text-sm">
+            <i class="fas fa-triangle-exclamation"></i> Hors ligne : la fiche sera gardée sur cet appareil et envoyée automatiquement dès le retour de la connexion.
+        </div>
+    </div>
+    <div id="pending-banner" class="hidden no-print ui-sans max-w-5xl mx-auto mt-3 px-4">
+        <div class="bg-blue-100 border border-blue-300 text-blue-800 rounded-lg px-4 py-2 text-sm">
+            <i class="fas fa-clock"></i> Une fiche remplie hors ligne est en attente d'envoi. Elle partira automatiquement dès la connexion.
+        </div>
+    </div>
+
+    <!-- ===================== VUE FORMULAIRE (fiche enseignant) ===================== -->
+    <main id="view-form" class="max-w-5xl mx-auto p-4">
+
+        <!-- Note d'accueil pour l'enseignant -->
+        <div id="teacher-intro" class="no-print ui-sans bg-white border border-indigo-200 rounded-xl p-4 my-3 text-sm text-gray-700 shadow-sm">
+            <p class="font-semibold text-indigo-800 mb-1"><i class="fas fa-circle-info"></i> Comment remplir votre fiche ?</p>
+            <ol class="list-decimal ml-5 space-y-0.5">
+                <li>Complétez toutes les rubriques ci-dessous (les champs marqués <span class="text-red-600 font-bold">*</span> sont obligatoires).</li>
+                <li>Remplissez votre <b>emploi du temps</b> (classe et salle dans chaque case, ex. « 3 EG 2 — S14 »).</li>
+                <li>Indiquez en bas les <b>niveaux enseignés</b> et le <b>nombre d'élèves</b> par niveau.</li>
+                <li>Cliquez sur <b>Enregistrer</b> : un <b>code personnel</b> vous sera attribué pour modifier votre fiche plus tard.</li>
+            </ol>
+            <p class="mt-2 text-xs text-gray-500"><i class="fas fa-lock"></i> Ces informations sont destinées exclusivement à l'inspection pédagogique de la discipline.</p>
+        </div>
+
+        <!-- Bandeau « fiche enregistrée » -->
+        <div id="saved-banner" class="hidden no-print ui-sans bg-green-50 border border-green-300 rounded-xl px-4 py-3 my-3 text-sm text-green-900 shadow-sm">
+            <i class="fas fa-circle-check"></i> Votre fiche est enregistrée dans la base.
+            Code personnel : <b id="saved-code" class="tracking-widest"></b>
+            <span id="saved-date" class="text-green-700"></span>
+            — gardez ce code pour modifier votre fiche depuis un autre appareil.
+        </div>
+
+        <!-- Barre admin (visible quand l'inspecteur consulte une fiche) -->
+        <div id="admin-bar" class="hidden no-print ui-sans bg-slate-800 text-white rounded-xl px-4 py-3 my-3 flex flex-wrap items-center justify-between gap-2 shadow">
+            <div><i class="fas fa-eye"></i> Fiche de <b id="admin-bar-name"></b></div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="adminBack()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-arrow-left"></i> Retour à la liste</button>
+                <button onclick="window.print()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-print"></i> Imprimer</button>
+                <button onclick="doSave()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-floppy-disk"></i> Enregistrer les modifications</button>
+                <button id="admin-del-btn" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-trash"></i> Supprimer</button>
+            </div>
+        </div>
+
+        <!-- ============ LA FICHE (document imprimable) ============ -->
+        <div id="sheet" class="bg-white shadow-lg rounded-lg p-6 md:p-8 my-3 border border-gray-200">
+
+            <!-- En-tête officiel -->
+            <div class="text-center mb-4 print-tight">
+                <p class="font-bold">République Tunisienne — Ministère de l'Éducation</p>
+                <p class="text-sm">Inspection pédagogique — Discipline : Économie &amp; Gestion</p>
+                <h1 class="text-xl md:text-2xl font-bold underline mt-2">FICHE DE RENSEIGNEMENTS — ENSEIGNANT(E)</h1>
+                <p class="text-sm mt-1">Année scolaire : <b id="f-annee"></b></p>
+            </div>
+
+            <!-- 1. Informations personnelles -->
+            <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-2 print-tight">1. Informations personnelles</h2>
+            <div class="grid md:grid-cols-2 gap-x-6 gap-y-2 mb-4 print-tight">
+                <label class="block">
+                    <span class="text-sm font-semibold">Nom et prénom <span class="text-red-600">*</span></span>
+                    <input id="f-nom" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Ben Salah Ahmed">
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="block">
+                        <span class="text-sm font-semibold">Date de naissance</span>
+                        <input id="f-date-naissance" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Lieu de naissance</span>
+                        <input id="f-lieu-naissance" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Sousse">
+                    </label>
+                </div>
+                <label class="block">
+                    <span class="text-sm font-semibold">Téléphone <span class="text-red-600">*</span></span>
+                    <input id="f-tel" type="tel" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. 98 123 456">
+                </label>
+                <label class="block">
+                    <span class="text-sm font-semibold">Adresse e-mail</span>
+                    <input id="f-email" type="email" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. prenom.nom@gmail.com">
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
+                    <label class="block">
+                        <span class="text-sm font-semibold">État civil</span>
+                        <select id="f-etat-civil" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+                            <option value="">—</option>
+                            <option>Célibataire</option>
+                            <option>Marié(e)</option>
+                            <option>Divorcé(e)</option>
+                            <option>Veuf(ve)</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Nom et prénom du conjoint</span>
+                        <input id="f-conjoint-nom" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="— si marié(e)">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Profession du conjoint</span>
+                        <input id="f-conjoint-prof" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. enseignante, médecin…">
+                    </label>
+                </div>
+            </div>
+
+            <!-- 2. Situation professionnelle -->
+            <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-2 print-tight">2. Situation professionnelle</h2>
+            <div class="grid md:grid-cols-2 gap-x-6 gap-y-2 mb-4 print-tight">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
+                    <label class="block">
+                        <span class="text-sm font-semibold">Type d'établissement</span>
+                        <select id="f-etab-type" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+                            <option>Lycée</option>
+                            <option>Collège technique</option>
+                        </select>
+                    </label>
+                    <label class="block sm:col-span-2">
+                        <span class="text-sm font-semibold">Établissement <span class="text-red-600">*</span></span>
+                        <input id="f-etab" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Lycée Ibn Khaldoun — Msaken">
+                    </label>
+                </div>
+                <label class="block">
+                    <span class="text-sm font-semibold">Commissariat régional d'éducation <span class="text-red-600">*</span></span>
+                    <input id="f-cre" type="text" list="cre-list" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Sousse">
+                    <datalist id="cre-list"></datalist>
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="block">
+                        <span class="text-sm font-semibold">Grade</span>
+                        <select id="f-grade" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+                            <option value="">—</option>
+                            <option>PES</option>
+                            <option>PP</option>
+                            <option>PPHC</option>
+                            <option>PPE</option>
+                            <option>PPE CE</option>
+                            <option>A2</option>
+                            <option>Autre</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Date de recrutement</span>
+                        <input id="f-date-recrutement" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
+                    <label class="block">
+                        <span class="text-sm font-semibold">Dernière note pédagogique (/20)</span>
+                        <input id="f-note" type="number" min="0" max="20" step="0.25" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. 14,5">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Inspecteur (dernière note)</span>
+                        <input id="f-inspecteur" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="nom de l'inspecteur">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Date de la note</span>
+                        <input id="f-date-note" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
+                    </label>
+                </div>
+            </div>
+
+            <!-- 3. Emploi du temps -->
+            <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-1 print-tight">3. Emploi du temps hebdomadaire</h2>
+            <p class="no-print ui-sans text-xs text-gray-500 mb-2">Dans chaque case : en haut la <b>classe</b> avec son numéro (ex. « 4ème EG2 », « 9ème T1 »), en bas la <b>salle</b>. Laissez vide si pas de séance.</p>
+            <div class="table-scroll mb-4 print-tight">
+                <table class="fiche-table text-sm">
+                    <thead>
+                        <tr id="edt-head"><th class="w-20">Jour</th></tr>
+                    </thead>
+                    <tbody id="edt-body"></tbody>
+                </table>
+            </div>
+            <datalist id="classes-list"></datalist>
+
+            <!-- 4. Niveaux enseignés -->
+            <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-1 print-tight">4. Niveaux enseignés et nombre d'élèves</h2>
+            <div class="table-scroll mb-3 print-tight">
+                <table class="fiche-table text-sm md:w-2/3">
+                    <thead>
+                        <tr><th class="text-left pl-2">Niveau</th><th class="w-32">Nombre de classes</th><th class="w-32">Nombre d'élèves</th></tr>
+                    </thead>
+                    <tbody id="niv-body"></tbody>
+                    <tfoot>
+                        <tr class="font-bold bg-indigo-50">
+                            <td class="pl-2">Total</td>
+                            <td class="text-center" id="niv-total-classes">0</td>
+                            <td class="text-center" id="niv-total">0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <p class="text-xs text-gray-500 print-tight">Fait le <span id="f-today"></span> — document destiné à l'inspection pédagogique (Économie &amp; Gestion).</p>
+        </div>
+
+        <!-- Boutons enseignant -->
+        <div id="teacher-actions" class="no-print ui-sans flex flex-wrap gap-2 justify-center my-4">
+            <button id="btn-save" onclick="doSave()" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow">
+                <i class="fas fa-cloud-arrow-up"></i> <span id="btn-save-label">Enregistrer ma fiche</span>
+            </button>
+            <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow">
+                <i class="fas fa-print"></i> Imprimer
+            </button>
+            <button onclick="findByCode()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-5 py-2.5 rounded-xl shadow-sm">
+                <i class="fas fa-key"></i> J'ai déjà une fiche (code)
+            </button>
+            <button onclick="clearForm(true)" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-5 py-2.5 rounded-xl shadow-sm">
+                <i class="fas fa-eraser"></i> Vider le formulaire
+            </button>
+        </div>
+        <p class="no-print ui-sans text-center text-xs text-gray-400 mb-8">Base des enseignants — Économie &amp; Gestion · les données sont synchronisées avec l'application « Rapport d'Inspection ».</p>
+    </main>
+
+    <!-- ===================== VUE ADMIN (espace inspecteur) ===================== -->
+    <main id="view-admin" class="hidden ui-sans max-w-6xl mx-auto p-4">
+
+        <!-- Erreur d'accès (règles Firestore) -->
+        <div id="adm-error" class="hidden bg-red-100 border border-red-300 text-red-800 rounded-xl px-4 py-3 my-3 text-sm"></div>
+
+        <!-- Statistiques -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-3">
+            <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+                <div class="text-3xl font-bold text-indigo-700" id="stat-count">0</div>
+                <div class="text-xs text-gray-500 mt-1">Fiches enseignants</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+                <div class="text-3xl font-bold text-emerald-600" id="stat-eleves">0</div>
+                <div class="text-xs text-gray-500 mt-1">Élèves au total</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+                <div class="text-3xl font-bold text-amber-600" id="stat-note-avg">—</div>
+                <div class="text-xs text-gray-500 mt-1">Moyenne des dernières notes</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border p-4">
+                <div class="text-xs text-gray-500 mb-1">Élèves par niveau</div>
+                <div id="stat-niveaux" class="flex flex-wrap gap-1 text-[11px]"></div>
+            </div>
+        </div>
+
+        <!-- Barre d'outils -->
+        <div class="bg-white rounded-xl shadow-sm border p-3 flex flex-wrap items-center gap-2 my-3">
+            <div class="relative grow min-w-[220px]">
+                <i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                <input id="adm-search" type="search" placeholder="Rechercher (nom, établissement, CRE, téléphone…)" class="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm">
+            </div>
+            <select id="adm-sort" class="border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white">
+                <option value="nom">Tri : Nom (A→Z)</option>
+                <option value="etab">Tri : Établissement</option>
+                <option value="cre">Tri : CRE</option>
+                <option value="note">Tri : Note (haut→bas)</option>
+                <option value="eleves">Tri : Élèves (haut→bas)</option>
+                <option value="maj">Tri : Dernière mise à jour</option>
+            </select>
+            <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-csv"></i> Export CSV</button>
+            <button onclick="changeAdminPass()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-lock"></i> Mot de passe</button>
+            <button onclick="adminLogout()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-right-from-bracket"></i> Quitter</button>
+        </div>
+
+        <!-- Liste des fiches -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden my-3">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-600 text-left">
+                        <tr>
+                            <th class="p-2.5">Nom et prénom</th>
+                            <th class="p-2.5">Grade</th>
+                            <th class="p-2.5">Établissement</th>
+                            <th class="p-2.5">CRE</th>
+                            <th class="p-2.5">Téléphone</th>
+                            <th class="p-2.5 text-center">Note</th>
+                            <th class="p-2.5 text-center">Élèves</th>
+                            <th class="p-2.5">Mise à jour</th>
+                            <th class="p-2.5 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adm-table-body"></tbody>
+                </table>
+            </div>
+            <div id="adm-empty" class="hidden p-8 text-center text-gray-400 text-sm">
+                <i class="fas fa-inbox text-3xl mb-2"></i><br>Aucune fiche pour le moment. Partagez le lien de cette page avec les enseignants.
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        // Le SDK Firebase est chargé dynamiquement (plus bas) : le formulaire s'affiche et
+        // fonctionne immédiatement, même si le CDN est lent ou bloqué (réseau filtré).
+        let initializeApp;
+        let initializeFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, where, limit, serverTimestamp;
+        let getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence;
+
+        // Même projet Firebase et même appId que l'application « Rapport d'Inspection » :
+        // les fiches alimentent la même base (collection publique partagée).
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDtZj-4E9ViefJ2Ria8zMKIrhJW7V_Qcj8",
+            authDomain: "inspection-gestion.firebaseapp.com",
+            projectId: "inspection-gestion",
+            storageBucket: "inspection-gestion.firebasestorage.app",
+            messagingSenderId: "1010806976572",
+            appId: "1:1010806976572:web:c366f9cdafb3c2d3445339",
+            measurementId: "G-84M69DBM8S"
+        };
+
+        const DEFAULT_ADMIN_PASS = "admin2026";           // même défaut que l'application principale
+        const DRAFT_KEY  = 'fiche_enseignant_draft_v1';   // brouillon local (avant envoi)
+        const SAVED_KEY  = 'fiche_enseignant_saved_v1';   // {id, code} de la fiche envoyée depuis cet appareil
+        const PENDING_KEY= 'fiche_enseignant_pending_v1'; // fiche remplie hors ligne, à envoyer
+
+        // Jours et créneaux : lundi → samedi, 8h → 18h, séances de 2 heures.
+        const DAYS  = [ ['lun','Lundi'], ['mar','Mardi'], ['mer','Mercredi'], ['jeu','Jeudi'], ['ven','Vendredi'], ['sam','Samedi'] ];
+        const SLOTS = [ ['08-10','8h – 10h'], ['10-12','10h – 12h'], ['12-14','12h – 14h'], ['14-16','14h – 16h'], ['16-18','16h – 18h'] ];
+
+        // Niveaux enseignés (discipline Économie & Gestion + collèges techniques).
+        const NIVEAUX = [
+            ['2ES', "2ème année — Économie & Services (2ème ES)"],
+            ['3EG', "3ème année — Économie & Gestion (3ème EG)"],
+            ['4EG', "4ème année — Économie & Gestion (4ème EG)"],
+            ['8T',  "8ème année (collège technique)"],
+            ['9T',  "9ème année (collège technique)"]
+        ];
+
+        const CRE_LIST = ["Ariana","Béja","Ben Arous","Bizerte","Gabès","Gafsa","Jendouba","Kairouan","Kasserine","Kébili","Le Kef","Mahdia","La Manouba","Médenine","Monastir","Nabeul","Sfax 1","Sfax 2","Sidi Bouzid","Siliana","Sousse","Tataouine","Tozeur","Tunis 1","Tunis 2","Zaghouan"];
+
+        // Chemins Firestore (zone publique partagée, comme la config de l'application principale).
+        let db, auth, currentUser = null;
+        const fichesCol  = () => collection(db, 'artifacts', appId, 'public', 'data', 'enseignants');
+        const ficheDoc   = (id) => doc(db, 'artifacts', appId, 'public', 'data', 'enseignants', id);
+        const adminCfgDoc= () => doc(db, 'artifacts', appId, 'public', 'data', 'enseignants_config', 'admin');
+
+        let viewingAdminId = null;     // id de la fiche ouverte par l'inspecteur (null = mode enseignant)
+        let adminRows = [];            // cache des fiches pour la liste admin
+        let unsubAdmin = null;         // désabonnement du snapshot admin
+        let adminPassHash = null;
+
+        // ---------- PETITS UTILITAIRES ----------
+        const $ = (id) => document.getElementById(id);
+        function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+        function fold(s){ return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+        function fmtDate(iso){
+            if(!iso) return '';
+            const [y,m,d] = String(iso).split('-');
+            return (d && m && y) ? `${d}/${m}/${y}` : String(iso);
+        }
+        function anneeScolaire(){
+            const now = new Date();
+            const y = now.getFullYear();
+            return now.getMonth() >= 8 ? `${y}/${y+1}` : `${y-1}/${y}`;   // l'année scolaire démarre en septembre
+        }
+        async function hashText(str){
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        }
+        function genCode(){
+            const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // sans 0/O/1/I (lisible au téléphone)
+            let c = '';
+            const r = new Uint32Array(6); crypto.getRandomValues(r);
+            for(let i = 0; i < 6; i++) c += A[r[i] % A.length];
+            return c;
+        }
+        function notify(msg, type = 'info', ms = 3500){
+            const t = document.createElement('div');
+            t.className = 'toast toast-' + type;
+            const icon = {success:'fa-circle-check', error:'fa-circle-xmark', warn:'fa-triangle-exclamation', info:'fa-circle-info'}[type] || 'fa-circle-info';
+            t.innerHTML = `<i class="fas ${icon}"></i><span>${escapeHtml(msg)}</span>`;
+            $('toast-container').appendChild(t);
+            setTimeout(() => t.remove(), ms);
+        }
+        function appConfirm(message){
+            return new Promise(res => {
+                const m = $('confirm-modal'); $('confirm-message').innerText = message;
+                m.classList.remove('hidden');
+                const done = v => { m.classList.add('hidden'); $('confirm-ok').onclick = $('confirm-cancel').onclick = null; res(v); };
+                $('confirm-ok').onclick = () => done(true);
+                $('confirm-cancel').onclick = () => done(false);
+            });
+        }
+        function uiPrompt(label, opts = {}){
+            return new Promise(res => {
+                const m = $('prompt-modal'), inp = $('prompt-input');
+                $('prompt-label').innerText = label;
+                inp.type = opts.password ? 'password' : 'text';
+                inp.value = '';
+                m.classList.remove('hidden');
+                setTimeout(() => inp.focus(), 50);
+                const done = v => { m.classList.add('hidden'); $('prompt-ok').onclick = $('prompt-cancel').onclick = inp.onkeydown = null; res(v); };
+                $('prompt-ok').onclick = () => done(inp.value);
+                $('prompt-cancel').onclick = () => done(null);
+                inp.onkeydown = e => { if(e.key === 'Enter') done(inp.value); else if(e.key === 'Escape') done(null); };
+            });
+        }
+        function setStatus(online){
+            $('status-indicator').innerHTML = online
+                ? '<span class="text-green-300"><i class="fas fa-circle"></i> Connecté à la base</span>'
+                : '<span class="text-orange-300"><i class="fas fa-circle"></i> Hors ligne</span>';
+            $('offline-banner').classList.toggle('hidden', !!online);
+        }
+        const getSaved  = () => { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || 'null'); } catch(_) { return null; } };
+        const setSaved  = (v) => localStorage.setItem(SAVED_KEY, JSON.stringify(v));
+        const clearSaved= () => localStorage.removeItem(SAVED_KEY);
+
+        // ---------- CONSTRUCTION DU FORMULAIRE (emploi du temps, niveaux, listes) ----------
+        function buildForm(){
+            // Emploi du temps : lignes = jours, colonnes = créneaux de 2h.
+            // Chaque case contient deux champs : la classe (en haut) et la salle (en bas).
+            const head = $('edt-head');
+            for(const [, slotLabel] of SLOTS){
+                const th = document.createElement('th'); th.innerText = slotLabel; head.appendChild(th);
+            }
+            const body = $('edt-body');
+            for(const [dayKey, dayLabel] of DAYS){
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<th class="text-xs whitespace-nowrap">${dayLabel}</th>` +
+                    SLOTS.map(([slotKey]) => `<td>
+                        <input id="edt-${dayKey}-${slotKey}" type="text" list="classes-list" class="text-xs" placeholder="classe">
+                        <input id="edt-${dayKey}-${slotKey}-salle" type="text" class="text-xs cell-salle" placeholder="salle">
+                    </td>`).join('');
+                body.appendChild(tr);
+            }
+            // Suggestions de classes détaillées (avec numéro) dans les cases de l'emploi du temps.
+            const stems = ['2ème ES','3ème EG','4ème EG','8ème T','9ème T'];
+            $('classes-list').innerHTML = stems.flatMap(s => [1,2,3,4].map(n => s + n)).map(v => `<option value="${v}">`).join('');
+
+            // Niveaux enseignés.
+            $('niv-body').innerHTML = NIVEAUX.map(([k, label]) => `
+                <tr>
+                    <td class="pl-2">${label}</td>
+                    <td><input id="niv-${k}-classes" type="number" min="0" max="20" placeholder="0"></td>
+                    <td><input id="niv-${k}-eleves" type="number" min="0" max="500" placeholder="0"></td>
+                </tr>`).join('');
+
+            $('cre-list').innerHTML = CRE_LIST.map(v => `<option value="${v}">`).join('');
+            $('f-annee').innerText = anneeScolaire();
+            $('f-today').innerText = new Date().toLocaleDateString('fr-FR');
+
+            // Total d'élèves / de classes recalculé en direct + brouillon automatique.
+            document.querySelectorAll('#sheet input, #sheet select').forEach(el => {
+                el.addEventListener('input', () => { el.classList.remove('field-error'); computeTotal(); scheduleDraft(); });
+            });
+            computeTotal();
+        }
+        function computeTotal(){
+            let te = 0, tc = 0;
+            for(const [k] of NIVEAUX){
+                te += parseInt($(`niv-${k}-eleves`).value) || 0;
+                tc += parseInt($(`niv-${k}-classes`).value) || 0;
+            }
+            $('niv-total').innerText = te;
+            $('niv-total-classes').innerText = tc;
+            return te;
+        }
+
+        // ---------- COLLECTE / REMPLISSAGE ----------
+        function collect(){
+            const d = {
+                nom: $('f-nom').value.trim(),
+                dateNaissance: $('f-date-naissance').value,
+                lieuNaissance: $('f-lieu-naissance').value.trim(),
+                telephone: $('f-tel').value.trim(),
+                email: $('f-email').value.trim(),
+                etatCivil: $('f-etat-civil').value,
+                conjointNom: $('f-conjoint-nom').value.trim(),
+                conjointProfession: $('f-conjoint-prof').value.trim(),
+                etabType: $('f-etab-type').value,
+                etablissement: $('f-etab').value.trim(),
+                cre: $('f-cre').value.trim(),
+                grade: $('f-grade').value,
+                dateRecrutement: $('f-date-recrutement').value,
+                derniereNote: $('f-note').value,
+                inspecteur: $('f-inspecteur').value.trim(),
+                dateNote: $('f-date-note').value,
+                anneeScolaire: anneeScolaire(),
+                emploi: {},
+                niveaux: {}
+            };
+            for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
+                const classe = $(`edt-${dayKey}-${slotKey}`).value.trim();
+                const salle  = $(`edt-${dayKey}-${slotKey}-salle`).value.trim();
+                if(classe || salle) d.emploi[`${dayKey}_${slotKey}`] = { classe, salle };
+            }
+            for(const [k] of NIVEAUX){
+                const classes = parseInt($(`niv-${k}-classes`).value) || 0;
+                const eleves  = parseInt($(`niv-${k}-eleves`).value) || 0;
+                if(classes || eleves) d.niveaux[k] = { classes, eleves };
+            }
+            d.totalEleves = computeTotal();
+            return d;
+        }
+        function fillForm(d){
+            $('f-nom').value = d.nom || '';
+            $('f-date-naissance').value = d.dateNaissance || '';
+            $('f-lieu-naissance').value = d.lieuNaissance || '';
+            $('f-tel').value = d.telephone || '';
+            $('f-email').value = d.email || '';
+            $('f-etat-civil').value = d.etatCivil || '';
+            $('f-conjoint-nom').value = d.conjointNom || '';
+            $('f-conjoint-prof').value = d.conjointProfession || '';
+            $('f-etab-type').value = d.etabType || 'Lycée';
+            $('f-etab').value = d.etablissement || '';
+            $('f-cre').value = d.cre || '';
+            $('f-grade').value = d.grade || '';
+            $('f-date-recrutement').value = d.dateRecrutement || '';
+            $('f-note').value = d.derniereNote ?? '';
+            $('f-inspecteur').value = d.inspecteur || '';
+            $('f-date-note').value = d.dateNote || '';
+            for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
+                // Anciennes fiches : la case était une simple chaîne (classe seule).
+                const v = (d.emploi || {})[`${dayKey}_${slotKey}`];
+                $(`edt-${dayKey}-${slotKey}`).value = (typeof v === 'string' ? v : (v && v.classe) || '');
+                $(`edt-${dayKey}-${slotKey}-salle`).value = (v && typeof v === 'object' && v.salle) || '';
+            }
+            for(const [k] of NIVEAUX){
+                const n = (d.niveaux || {})[k] || {};
+                $(`niv-${k}-classes`).value = n.classes || '';
+                $(`niv-${k}-eleves`).value = n.eleves || '';
+            }
+            if(d.anneeScolaire) $('f-annee').innerText = d.anneeScolaire;
+            computeTotal();
+            document.querySelectorAll('#sheet .field-error').forEach(el => el.classList.remove('field-error'));
+        }
+        window.clearForm = async function(ask){
+            if(ask && !await appConfirm("Vider tous les champs du formulaire ? (la fiche déjà enregistrée dans la base n'est pas supprimée)")) return;
+            fillForm({});
+            localStorage.removeItem(DRAFT_KEY);
+            $('f-annee').innerText = anneeScolaire();
+        };
+
+        // ---------- VALIDATION ----------
+        function validate(d){
+            const errors = [];
+            const mark = (id, bad) => $(id).classList.toggle('field-error', !!bad);
+            mark('f-nom', !d.nom);            if(!d.nom) errors.push("le nom et prénom");
+            const telOk = (d.telephone.replace(/\D/g,'').length >= 8);
+            mark('f-tel', !telOk);            if(!telOk) errors.push("un téléphone valide (8 chiffres min)");
+            mark('f-etab', !d.etablissement); if(!d.etablissement) errors.push("l'établissement");
+            mark('f-cre', !d.cre);            if(!d.cre) errors.push("le commissariat régional");
+            const emailBad = d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email);
+            mark('f-email', emailBad);        if(emailBad) errors.push("une adresse e-mail valide");
+            const noteBad = d.derniereNote !== '' && (isNaN(parseFloat(d.derniereNote)) || parseFloat(d.derniereNote) < 0 || parseFloat(d.derniereNote) > 20);
+            mark('f-note', noteBad);          if(noteBad) errors.push("une note entre 0 et 20");
+            return errors;
+        }
+
+        // ---------- BROUILLON LOCAL ----------
+        let draftTimer = null;
+        function scheduleDraft(){
+            if(viewingAdminId) return;   // ne jamais écraser le brouillon de l'enseignant avec une fiche consultée par l'inspecteur
+            clearTimeout(draftTimer);
+            draftTimer = setTimeout(() => {
+                try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ts: Date.now(), data: collect() })); } catch(_) {}
+            }, 400);
+        }
+        function getDraft(){ try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch(_) { return null; } }
+
+        // ---------- ENREGISTREMENT ----------
+        window.doSave = async function(){
+            const d = collect();
+            const errors = validate(d);
+            if(errors.length){ notify("Veuillez compléter : " + errors.join(', ') + ".", "error", 6000); return; }
+
+            // L'inspecteur enregistre des corrections sur la fiche qu'il consulte.
+            if(viewingAdminId){
+                try {
+                    await updateDoc(ficheDoc(viewingAdminId), { ...d, updatedAt: serverTimestamp() });
+                    notify("Modifications enregistrées.", "success");
+                } catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+                return;
+            }
+
+            // Hors ligne : on garde la fiche sur l'appareil, elle partira à la reconnexion.
+            if(!currentUser){
+                localStorage.setItem(PENDING_KEY, JSON.stringify(d));
+                $('pending-banner').classList.remove('hidden');
+                notify("Pas de connexion : fiche gardée sur cet appareil, elle sera envoyée automatiquement.", "warn", 6000);
+                return;
+            }
+            await sendFiche(d);
+        };
+        async function sendFiche(d){
+            const btn = $('btn-save'); btn.disabled = true;
+            try {
+                const saved = getSaved();
+                if(saved && saved.id){
+                    await updateDoc(ficheDoc(saved.id), { ...d, updatedAt: serverTimestamp() });
+                    showSavedBanner(saved.code);
+                    notify("Votre fiche a été mise à jour dans la base.", "success", 5000);
+                } else {
+                    const code = genCode();
+                    const ref = await addDoc(fichesCol(), {
+                        ...d, code,
+                        ownerUid: currentUser ? currentUser.uid : null,
+                        createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+                    });
+                    setSaved({ id: ref.id, code });
+                    showSavedBanner(code);
+                    notify("Fiche enregistrée ! Notez votre code personnel : " + code, "success", 9000);
+                }
+                localStorage.removeItem(DRAFT_KEY);
+                localStorage.removeItem(PENDING_KEY);
+                $('pending-banner').classList.add('hidden');
+                $('btn-save-label').innerText = "Mettre à jour ma fiche";
+            } catch(e){
+                // La fiche a pu être supprimée par l'inspecteur : on retente en création.
+                if(getSaved() && /not-found|No document/i.test(String(e && (e.code || e.message)))){
+                    clearSaved();
+                    btn.disabled = false;
+                    return sendFiche(d);
+                }
+                notify(saveErrorMessage(e), "error", 9000);
+            } finally { btn.disabled = false; }
+        }
+        function saveErrorMessage(e){
+            const s = String(e && (e.code || e.message) || e);
+            if(/permission-denied|insufficient/i.test(s))
+                return "Accès refusé par le serveur : les règles de sécurité Firestore doivent autoriser la zone publique (voir README, section « Base des enseignants »).";
+            if(/unavailable|network/i.test(s))
+                return "Connexion au serveur impossible. Vérifiez Internet puis réessayez.";
+            return "Erreur lors de l'enregistrement : " + s;
+        }
+        function showSavedBanner(code, updatedAt){
+            $('saved-banner').classList.remove('hidden');
+            $('saved-code').innerText = code || '';
+            $('saved-date').innerText = updatedAt ? ` (dernière mise à jour : ${updatedAt.toLocaleDateString('fr-FR')})` : '';
+        }
+
+        // ---------- RETROUVER SA FICHE PAR CODE ----------
+        window.findByCode = async function(){
+            if(!currentUser){ notify("Connexion au serveur requise pour retrouver une fiche.", "error"); return; }
+            const code = await uiPrompt("Entrez le code personnel reçu lors du premier enregistrement (6 caractères) :");
+            if(code === null) return;
+            const c = code.trim().toUpperCase();
+            if(c.length < 4){ notify("Code trop court.", "error"); return; }
+            try {
+                const snap = await getDocs(query(fichesCol(), where('code', '==', c), limit(1)));
+                if(snap.empty){ notify("Aucune fiche avec ce code.", "error"); return; }
+                const docSnap = snap.docs[0];
+                fillForm(docSnap.data());
+                setSaved({ id: docSnap.id, code: c });
+                showSavedBanner(c, docSnap.data().updatedAt && docSnap.data().updatedAt.toDate ? docSnap.data().updatedAt.toDate() : null);
+                $('btn-save-label').innerText = "Mettre à jour ma fiche";
+                notify("Fiche retrouvée : vous pouvez la modifier puis l'enregistrer.", "success", 6000);
+            } catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+        };
+
+        // ---------- ESPACE INSPECTEUR ----------
+        async function loadAdminPass(){
+            try {
+                const d = await getDoc(adminCfgDoc());
+                if(d.exists() && d.data().passwordHash){ adminPassHash = d.data().passwordHash; return; }
+            } catch(_) {}
+            adminPassHash = await hashText(DEFAULT_ADMIN_PASS);
+        }
+        window.openAdmin = async function(){
+            if(!$('view-admin').classList.contains('hidden')) return;
+            if(!currentUser){ notify("Connexion au serveur requise pour l'espace inspecteur.", "error"); return; }
+            if(sessionStorage.getItem('enseignants_admin_ok') !== '1'){
+                await loadAdminPass();
+                const p = await uiPrompt("Mot de passe inspecteur :", { password: true });
+                if(p === null) return;
+                if(await hashText(p) !== adminPassHash){ notify("Mot de passe incorrect.", "error"); return; }
+                sessionStorage.setItem('enseignants_admin_ok', '1');
+            }
+            showAdmin();
+        };
+        function showAdmin(){
+            viewingAdminId = null;
+            $('view-form').classList.add('hidden');
+            $('admin-bar').classList.add('hidden');
+            $('view-admin').classList.remove('hidden');
+            $('btn-myfiche').classList.remove('hidden');
+            startAdminFeed();
+        }
+        window.adminLogout = function(){
+            sessionStorage.removeItem('enseignants_admin_ok');
+            if(unsubAdmin){ unsubAdmin(); unsubAdmin = null; }
+            viewingAdminId = null;
+            $('view-admin').classList.add('hidden');
+            $('admin-bar').classList.add('hidden');
+            $('btn-myfiche').classList.add('hidden');
+            $('view-form').classList.remove('hidden');
+            $('teacher-intro').classList.remove('hidden');
+            $('teacher-actions').classList.remove('hidden');
+            restoreTeacherForm();
+            notify("Espace inspecteur fermé.", "info");
+        };
+        function startAdminFeed(){
+            if(unsubAdmin) return;
+            unsubAdmin = onSnapshot(query(fichesCol()), snap => {
+                $('adm-error').classList.add('hidden');
+                adminRows = snap.docs.map(s => ({ id: s.id, ...s.data() }));
+                renderAdmin();
+            }, e => {
+                unsubAdmin = null;   // l'écouteur est arrêté par l'erreur : autoriser une nouvelle tentative
+                $('adm-error').innerHTML = '<i class="fas fa-triangle-exclamation"></i> <b>Lecture refusée par le serveur.</b> ' +
+                    'Les règles de sécurité Firestore doivent autoriser la zone publique : ouvrez la console Firebase → Firestore Database → Règles, ' +
+                    'collez le modèle fourni dans le README du dépôt, puis « Publier ». Revenez ensuite sur cette page.';
+                $('adm-error').classList.remove('hidden');
+            });
+        }
+        function noteOf(r){ const n = parseFloat(r.derniereNote); return isNaN(n) ? null : n; }
+        function majOf(r){ return r.updatedAt && r.updatedAt.toDate ? r.updatedAt.toDate() : null; }
+        function renderAdmin(){
+            // Statistiques globales (sur toutes les fiches).
+            $('stat-count').innerText = adminRows.length;
+            $('stat-eleves').innerText = adminRows.reduce((a,r) => a + (parseInt(r.totalEleves) || 0), 0);
+            const notes = adminRows.map(noteOf).filter(n => n !== null);
+            $('stat-note-avg').innerText = notes.length ? (notes.reduce((a,b) => a+b, 0) / notes.length).toFixed(2) : '—';
+            $('stat-niveaux').innerHTML = NIVEAUX.map(([k, label]) => {
+                const tot = adminRows.reduce((a,r) => a + (((r.niveaux || {})[k] || {}).eleves || 0), 0);
+                const short = label.match(/\(([^)]+)\)/) ? label.match(/\(([^)]+)\)/)[1] : label;
+                return `<span class="bg-indigo-50 text-indigo-800 rounded px-1.5 py-0.5">${escapeHtml(short)} : <b>${tot}</b></span>`;
+            }).join('');
+
+            // Filtre + tri.
+            const needle = fold($('adm-search').value);
+            let rows = adminRows.filter(r => !needle ||
+                fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle));
+            const mode = $('adm-sort').value;
+            rows.sort((a,b) => {
+                if(mode === 'note')   return (noteOf(b) ?? -1) - (noteOf(a) ?? -1);
+                if(mode === 'eleves') return (parseInt(b.totalEleves) || 0) - (parseInt(a.totalEleves) || 0);
+                if(mode === 'maj')    return (majOf(b)?.getTime() || 0) - (majOf(a)?.getTime() || 0);
+                const key = mode === 'etab' ? 'etablissement' : mode === 'cre' ? 'cre' : 'nom';
+                return fold(a[key]).localeCompare(fold(b[key]));
+            });
+
+            $('adm-empty').classList.toggle('hidden', adminRows.length > 0);
+            $('adm-table-body').innerHTML = rows.map(r => `
+                <tr class="border-t hover:bg-indigo-50/40">
+                    <td class="p-2.5"><button class="text-indigo-700 font-semibold hover:underline" onclick="adminView('${r.id}')">${escapeHtml(r.nom) || '—'}</button></td>
+                    <td class="p-2.5">${escapeHtml(r.grade || '—')}</td>
+                    <td class="p-2.5">${escapeHtml(r.etablissement)}<span class="text-gray-400 text-xs"> (${escapeHtml(r.etabType || '')})</span></td>
+                    <td class="p-2.5">${escapeHtml(r.cre)}</td>
+                    <td class="p-2.5 whitespace-nowrap">${escapeHtml(r.telephone)}</td>
+                    <td class="p-2.5 text-center">${noteOf(r) !== null ? noteOf(r).toLocaleString('fr-FR') : '—'}${r.dateNote ? `<div class="text-[10px] text-gray-400">${fmtDate(r.dateNote)}</div>` : ''}</td>
+                    <td class="p-2.5 text-center">${parseInt(r.totalEleves) || 0}</td>
+                    <td class="p-2.5 text-xs text-gray-500 whitespace-nowrap">${majOf(r) ? majOf(r).toLocaleDateString('fr-FR') : '—'}</td>
+                    <td class="p-2.5 text-right whitespace-nowrap">
+                        <button class="text-indigo-600 hover:text-indigo-800 px-1.5" title="Voir / imprimer la fiche" onclick="adminView('${r.id}')"><i class="fas fa-eye"></i></button>
+                        <button class="text-red-500 hover:text-red-700 px-1.5" title="Supprimer la fiche" onclick="adminDelete('${r.id}')"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+        }
+        window.adminView = function(id){
+            const r = adminRows.find(x => x.id === id);
+            if(!r) return;
+            viewingAdminId = id;
+            fillForm(r);
+            $('admin-bar-name').innerText = r.nom || '(sans nom)';
+            $('admin-del-btn').onclick = () => adminDelete(id);
+            $('view-admin').classList.add('hidden');
+            $('view-form').classList.remove('hidden');
+            $('admin-bar').classList.remove('hidden');
+            $('teacher-intro').classList.add('hidden');
+            $('teacher-actions').classList.add('hidden');
+            $('saved-banner').classList.add('hidden');
+            window.scrollTo(0, 0);
+        };
+        window.adminBack = function(){
+            viewingAdminId = null;
+            $('view-form').classList.add('hidden');
+            $('admin-bar').classList.add('hidden');
+            $('view-admin').classList.remove('hidden');
+            restoreTeacherForm();
+        };
+        window.adminDelete = async function(id){
+            const r = adminRows.find(x => x.id === id);
+            if(!await appConfirm(`Supprimer définitivement la fiche de « ${r ? r.nom : id} » ?`)) return;
+            try {
+                await deleteDoc(ficheDoc(id));
+                notify("Fiche supprimée.", "success");
+                if(viewingAdminId === id) adminBack();
+            } catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+        };
+        window.changeAdminPass = async function(){
+            const p = await uiPrompt("Nouveau mot de passe inspecteur (4 caractères minimum) :", { password: true });
+            if(p === null) return;
+            if(p.trim().length < 4){ notify("Mot de passe trop court.", "error"); return; }
+            try {
+                await setDoc(adminCfgDoc(), { passwordHash: await hashText(p.trim()) });
+                adminPassHash = await hashText(p.trim());
+                notify("Mot de passe modifié.", "success");
+            } catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+        };
+
+        // ---------- EXPORT CSV (liste affichée : filtre et tri appliqués) ----------
+        window.exportCSV = function(){
+            const needle = fold($('adm-search').value);
+            const rows = adminRows.filter(r => !needle ||
+                fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle));
+            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","CRE","Grade","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
+            for(const [,label] of NIVEAUX) cols.push(label + " — classes", label + " — élèves");
+            cols.push("Total élèves","Emploi du temps","Année scolaire","Code","Mise à jour");
+            const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+            const lines = [cols.map(esc).join(';')];
+            // Une case d'emploi du temps peut être une chaîne (anciennes fiches) ou {classe, salle}.
+            const cellTxt = v => typeof v === 'string' ? v : v ? ((v.classe || '') + (v.salle ? ` (salle ${v.salle})` : '')) : '';
+            for(const r of rows){
+                const edt = DAYS.map(([dk, dl]) => {
+                    const cells = SLOTS.map(([sk, sl]) => (r.emploi || {})[`${dk}_${sk}`] ? `${sl} : ${cellTxt((r.emploi || {})[`${dk}_${sk}`])}` : null).filter(Boolean);
+                    return cells.length ? `${dl} → ${cells.join(' | ')}` : null;
+                }).filter(Boolean).join('  //  ');
+                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, r.cre, r.grade, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
+                for(const [k] of NIVEAUX){
+                    const n = (r.niveaux || {})[k] || {};
+                    line.push(n.classes || 0, n.eleves || 0);
+                }
+                line.push(r.totalEleves || 0, edt, r.anneeScolaire || '', r.code || '', majOf(r) ? majOf(r).toLocaleDateString('fr-FR') : '');
+                lines.push(line.map(esc).join(';'));
+            }
+            const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `base-enseignants-${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            notify(`${rows.length} fiche(s) exportée(s) en CSV.`, "success");
+        };
+
+        // ---------- CHARGEMENT INITIAL CÔTÉ ENSEIGNANT ----------
+        async function restoreTeacherForm(){
+            const saved = getSaved();
+            if(saved && saved.id && currentUser){
+                try {
+                    const s = await getDoc(ficheDoc(saved.id));
+                    if(s.exists()){
+                        fillForm(s.data());
+                        showSavedBanner(saved.code, s.data().updatedAt && s.data().updatedAt.toDate ? s.data().updatedAt.toDate() : null);
+                        $('btn-save-label').innerText = "Mettre à jour ma fiche";
+                        // Un brouillon plus récent que la version en base = modifications non envoyées.
+                        const draft = getDraft();
+                        const cloudTs = s.data().updatedAt && s.data().updatedAt.toMillis ? s.data().updatedAt.toMillis() : 0;
+                        if(draft && draft.ts > cloudTs + 2000){
+                            fillForm(draft.data);
+                            notify("Des modifications non envoyées ont été restaurées : pensez à « Mettre à jour ma fiche ».", "warn", 7000);
+                        }
+                        return;
+                    }
+                    clearSaved();   // la fiche a été supprimée de la base
+                } catch(_) {}
+            }
+            const pending = (() => { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch(_) { return null; } })();
+            if(pending){ fillForm(pending); $('pending-banner').classList.remove('hidden'); return; }
+            const draft = getDraft();
+            if(draft && draft.data){ fillForm(draft.data); }
+        }
+        async function flushPending(){
+            const pending = (() => { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch(_) { return null; } })();
+            if(pending && currentUser){
+                notify("Envoi de la fiche enregistrée hors ligne…", "info");
+                await sendFiche(pending);
+            }
+        }
+
+        // ---------- DÉMARRAGE ----------
+        buildForm();
+        $('adm-search').addEventListener('input', renderAdmin);
+        $('adm-sort').addEventListener('change', renderAdmin);
+        let connected = false;
+        // Repli hors-ligne si la connexion n'aboutit pas rapidement (réseau lent, CDN bloqué…)
+        setTimeout(() => { if(!connected){ setStatus(false); restoreTeacherForm(); } }, 4000);
+        (async () => {
+            try {
+                const base = "https://www.gstatic.com/firebasejs/11.6.1/";
+                const [mApp, mFs, mAuth] = await Promise.all([
+                    import(base + "firebase-app.js"),
+                    import(base + "firebase-firestore.js"),
+                    import(base + "firebase-auth.js")
+                ]);
+                ({ initializeApp } = mApp);
+                ({ initializeFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, where, limit, serverTimestamp } = mFs);
+                ({ getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence } = mAuth);
+
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                // Long-polling auto : WebChannel est souvent bloqué dans les WebView Android.
+                db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+                try { await setPersistence(auth, browserLocalPersistence); } catch(_) {}
+                let initialResolved = false;
+                onAuthStateChanged(auth, async (user) => {
+                    const first = !initialResolved; initialResolved = true;
+                    if(user){
+                        connected = true; currentUser = user;
+                        setStatus(true);
+                        if(sessionStorage.getItem('enseignants_admin_ok') === '1' && $('view-admin').classList.contains('hidden') && !viewingAdminId) showAdmin();
+                        await flushPending();
+                        if(!viewingAdminId && $('view-admin').classList.contains('hidden')) await restoreTeacherForm();
+                    } else if(first){
+                        signInAnonymously(auth).catch(() => setStatus(false));
+                    } else {
+                        currentUser = null; setStatus(false);
+                    }
+                });
+            } catch(_) { setStatus(false); }
+        })();
+    </script>
+</body>
+</html>
