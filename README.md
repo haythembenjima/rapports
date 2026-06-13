@@ -1,10 +1,10 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.17/Rapport-Inspection.apk)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.18/Rapport-Inspection.apk)
 
 > **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
-> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.17/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.18/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
@@ -81,6 +81,12 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
   année scolaire, et ses classes proposées en autocomplétion. Seule l'identité est copiée :
   la grille d'évaluation, la description et la synthèse restent vierges (c'est un nouveau rapport),
   et un rapport en cours n'est pas écrasé tant que rien n'a été saisi.
+
+> **Dans les applications installées (Windows `.exe` / Android `.apk`)** : la base des enseignants
+> est **embarquée**. Un bouton « **Base des enseignants** » apparaît dans la barre de l'application
+> (et un lien « Rapports d'inspection » pour revenir), et « **Préparer un rapport** » ouvre le
+> rapport pré-rempli **directement dans l'application**, sans passer par le navigateur. Disponible
+> à partir des versions **Windows v1.17.0** et **Android v1.7.18**.
 
 ### Mise en ligne (GitHub Pages)
 
