@@ -739,6 +739,14 @@
         const $ = (id) => document.getElementById(id);
         // Vraie application installée (Electron .exe ou Capacitor .apk) plutôt que navigateur web.
         function isPackagedApp(){ return !!((window.__cap && window.__cap.isNative) || /Electron/i.test(navigator.userAgent)); }
+        // URL PUBLIQUE de la page (celle à partager aux enseignants). Dans l'app installée, la page
+        // est ouverte en file:// (ou http://localhost sur Android) : on renvoie alors le lien web
+        // officiel GitHub Pages, jamais un chemin local inutilisable par l'enseignant.
+        function shareBaseUrl(){
+            const web = /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1|.*\.local)$/i.test(location.hostname);
+            return web ? (location.origin + location.pathname)
+                       : 'https://haythembenjima.github.io/rapports/enseignants.html';
+        }
         function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
         function fold(s){ return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
         function fmtDate(iso){
@@ -754,15 +762,19 @@
             if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
             return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : v;
         }
-        // Saisie jj/mm/aaaa : 8 chiffres tapés, « / » insérés automatiquement (jour → mois → année).
+        // Saisie jj/mm/aaaa : « / » inséré automatiquement dès le 2e puis le 4e chiffre
+        // (jour → mois → année). Le Retour arrière n'ajoute pas de « / » (reste effaçable).
         function attachDateMask(el){
             if(!el || el.dataset.maskOn) return;
             el.dataset.maskOn = '1';
-            el.addEventListener('input', () => {
+            el.addEventListener('input', (e) => {
+                const del = !!(e.inputType && e.inputType.indexOf('delete') === 0);
                 const dgt = el.value.replace(/\D/g, '').slice(0, 8);
                 let out = dgt.slice(0, 2);
-                if(dgt.length >= 3) out += '/' + dgt.slice(2, 4);
-                if(dgt.length >= 5) out += '/' + dgt.slice(4, 8);
+                if(dgt.length > 2) out += '/' + dgt.slice(2, 4);
+                else if(dgt.length === 2 && !del) out += '/';
+                if(dgt.length > 4) out += '/' + dgt.slice(4, 8);
+                else if(dgt.length === 4 && !del) out += '/';
                 if(el.value !== out) el.value = out;
             });
         }
@@ -1231,7 +1243,7 @@
             $('suivi-panel').classList.add('hidden');
             $('view-admin').classList.remove('hidden');
             $('btn-myfiche').classList.remove('hidden');
-            $('adm-share-link').value = location.origin + location.pathname + '?i=' + myCode;
+            $('adm-share-link').value = shareBaseUrl() + '?i=' + myCode;
             $('adm-my-code').innerText = myCode;
             // Repère « nouvelles fiches » : tout ce qui a été créé depuis la dernière ouverture.
             if(newCutoff === null){
