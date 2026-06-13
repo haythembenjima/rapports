@@ -154,6 +154,21 @@
         </div>
     </div>
 
+    <!-- Export groupé des fiches (PDF via impression / Word) -->
+    <div id="export-docs-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 class="font-bold text-lg mb-1"><i class="fas fa-file-export text-indigo-600"></i> Exporter les fiches</h3>
+            <p class="text-sm text-gray-600 mb-4"><b id="export-docs-count">0</b> fiche(s) (telles que filtrées) seront exportées, une par page.</p>
+            <div class="flex flex-col gap-2">
+                <button onclick="exportFichesPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm"><i class="fas fa-file-pdf"></i> PDF (via l'aperçu d'impression → « Enregistrer en PDF »)</button>
+                <button onclick="exportFichesWord()" class="bg-sky-700 hover:bg-sky-800 text-white px-4 py-2 rounded-lg text-sm"><i class="fas fa-file-word"></i> Word (.doc, modifiable)</button>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button onclick="closeExportDocs()" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Doublons : repérer et fusionner les fiches en double -->
     <div id="dedup-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
         <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[85vh] flex flex-col">
@@ -657,6 +672,7 @@
             </div>
             <button onclick="openDedup()" title="Repérer et fusionner les fiches en double" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-clone"></i> Doublons</button>
             <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-csv"></i> Export CSV</button>
+            <button onclick="openExportDocs()" title="Exporter les fiches affichées (PDF ou Word), une par page" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-export"></i> Fiches PDF/Word</button>
             <button onclick="openImport()" title="Créer des fiches en lot depuis un fichier CSV" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-import"></i> Importer (CSV)</button>
             <button onclick="exportBackup()" title="Télécharger toute votre base (fichier JSON à conserver)" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-download"></i> Sauvegarde</button>
             <button onclick="document.getElementById('restore-file').click()" title="Restaurer une sauvegarde JSON" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-upload"></i> Restaurer</button>
@@ -2207,6 +2223,98 @@
             let n = 0;
             for(const r of legacy){ try { await updateDoc(ficheDoc(r.id), { insp: myCode }); n++; } catch(_) {} }
             notify(`${n} fiche(s) importée(s) dans votre base.`, "success");
+        };
+
+        // ---------- EXPORT GROUPÉ DES FICHES (PDF via impression / Word .doc) ----------
+        function exportedDocsRows(){
+            const needle = fold($('adm-search').value);
+            return applyFilters(myRows().filter(r => !needle ||
+                fold([r.nom, r.etablissement, r.etablissement2, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle)));
+        }
+        const DOCS_CSS = `body{font-family:"Times New Roman",Times,serif;color:#000;margin:0}
+            .fiche-page{padding:1.2cm}
+            h2.tt{font-size:18px;text-decoration:underline;margin:6px 0;text-align:center}
+            .sec{font-weight:bold;color:#1e3a8a;border-bottom:2px solid #c7d2fe;margin:8px 0 4px;font-size:13px}
+            table{border-collapse:collapse}
+            .idt{width:100%} .idt td{padding:2px 8px;vertical-align:top;font-size:12px}
+            .edt{width:100%;font-size:11px} .edt th,.edt td{border:1px solid #000;padding:2px 4px;text-align:center}
+            .edt th{background:#f0f0f0}
+            .cls{font-size:12px;margin-top:4px} .cls th,.cls td{border:1px solid #000;padding:2px 8px}
+            @media print{@page{size:A4;margin:1.2cm} .fiche-page{padding:0}}`;
+        function docKv(l, v){ return `<b>${escapeHtml(l)} :</b> ${escapeHtml((v == null || v === '') ? '—' : String(v))}`; }
+        function docEdtCell(v){
+            if(!v) return '';
+            const classe = typeof v === 'string' ? v : (v.classe || '');
+            const sub = [(v && typeof v === 'object' && v.salle) || '', (v && typeof v === 'object' && v.prec) || ''].filter(Boolean).join(' · ');
+            return `${escapeHtml(classe)}${sub ? `<div style="font-size:9px;color:#555">${escapeHtml(sub)}</div>` : ''}`;
+        }
+        function fichePageHtml(r, isLast){
+            const total = (parseFloat(r.heures1) || 0) + (parseFloat(r.heures2) || 0);
+            const head = '<th>Jour</th>' + SLOTS.map(([, sl]) => `<th>${sl}</th>`).join('');
+            const body = DAYS.map(([dk, dl]) => {
+                const cells = SLOTS.map(([sk]) => {
+                    const v = (r.emploi || {})[`${dk}_${sk}`];
+                    const prec = (v && typeof v === 'object' && v.prec) || '';
+                    return `<td${isEtab2(prec) ? ' style="background:#fde68a"' : ''}>${docEdtCell(v)}</td>`;
+                }).join('');
+                return `<tr><th>${dl}</th>${cells}</tr>`;
+            }).join('');
+            const cls = Object.entries(r.classes || {});
+            const hist = Array.isArray(r.notesHistory) ? r.notesHistory.slice().sort((a, b) => toISO(a.date || '').localeCompare(toISO(b.date || ''))) : [];
+            const histHtml = hist.length
+                ? `<div class="sec">Évolution des notes</div><div style="font-size:12px;margin-bottom:3px">Progression : <b>${escapeHtml(hist.map(h => h.note).filter(n => n !== '' && n != null).join('  →  '))}</b></div><table class="cls" style="width:70%"><tr><th>Date</th><th>Note /20</th><th>Inspecteur</th></tr>${hist.map(h => `<tr><td>${escapeHtml(toDMY(h.date || ''))}</td><td style="text-align:center">${escapeHtml(String(h.note || '—'))}</td><td>${escapeHtml(h.inspecteur || '')}</td></tr>`).join('')}</table>`
+                : '';
+            return `<div class="fiche-page"${isLast ? '' : ' style="page-break-after:always"'}>
+                <div style="text-align:center">
+                    <div style="font-weight:bold">République Tunisienne — Ministère de l'Éducation</div>
+                    <div style="font-size:12px">Inspection pédagogique — Discipline : Gestion</div>
+                    <h2 class="tt">FICHE DE RENSEIGNEMENTS — ENSEIGNANT(E)</h2>
+                    <div style="font-size:12px">Année scolaire : <b>${escapeHtml(r.anneeScolaire || anneeScolaire())}</b></div>
+                </div>
+                <div class="sec">1. Informations personnelles</div>
+                <table class="idt"><tr><td colspan="2">${docKv('Nom et prénom', r.nom)}</td></tr>
+                    <tr><td>${docKv('Date de naissance', toDMY(r.dateNaissance))}</td><td>${docKv('Lieu de naissance', r.lieuNaissance)}</td></tr>
+                    <tr><td>${docKv('Téléphone', r.telephone)}</td><td>${docKv('E-mail', r.email)}</td></tr>
+                    <tr><td>${docKv('État civil', r.etatCivil)}</td><td>${docKv('Conjoint', (r.conjointNom || '') + (r.conjointProfession ? ' — ' + r.conjointProfession : ''))}</td></tr>
+                </table>
+                <div class="sec">2. Situation professionnelle</div>
+                <table class="idt">
+                    <tr><td>${docKv('Établissement principal', (r.etablissement || '') + (r.etabType ? ' (' + r.etabType + ')' : ''))}</td><td>${docKv('Nb h/sem.', r.heures1)}</td></tr>
+                    <tr><td>${docKv('2ème établissement', (r.etablissement2 || '') + (r.etab2Type ? ' (' + r.etab2Type + ')' : ''))}</td><td>${docKv('Nb h/sem.', r.heures2)}</td></tr>
+                    <tr><td>${docKv('Total heures', total || '—')}</td><td>${docKv('CRE', r.cre)}</td></tr>
+                    <tr><td>${docKv('Grade', r.grade)}</td><td>${docKv('Matricule CNRPS', r.matricule)}</td></tr>
+                    <tr><td>${docKv('Situation', r.situationAdmin)}</td><td>${docKv('Date de recrutement', toDMY(r.dateRecrutement))}</td></tr>
+                    <tr><td>${docKv('Dernière note /20', r.derniereNote)}</td><td>${docKv('Inspecteur', (r.inspecteur || '') + (r.dateNote ? ' (' + toDMY(r.dateNote) + ')' : ''))}</td></tr>
+                </table>
+                <div class="sec">3. Emploi du temps hebdomadaire</div>
+                <table class="edt"><tr>${head}</tr>${body}</table>
+                ${cls.length ? `<div class="sec">4. Classes enseignées</div><table class="cls" style="width:60%"><tr><th>Classe</th><th>Nombre d'élèves</th></tr>${cls.map(([n, e]) => `<tr><td>${escapeHtml(n)}</td><td style="text-align:center">${escapeHtml(String(e || 0))}</td></tr>`).join('')}<tr><td style="font-weight:bold">Total (${cls.length})</td><td style="text-align:center;font-weight:bold">${parseInt(r.totalEleves) || 0}</td></tr></table>` : ''}
+                ${histHtml}
+            </div>`;
+        }
+        function buildFichesHTML(rows){ return rows.map((r, i) => fichePageHtml(r, i === rows.length - 1)).join(''); }
+        window.openExportDocs = function(){ $('export-docs-count').innerText = exportedDocsRows().length; $('export-docs-modal').classList.remove('hidden'); };
+        window.closeExportDocs = function(){ $('export-docs-modal').classList.add('hidden'); };
+        window.exportFichesPDF = function(){
+            const rows = exportedDocsRows();
+            if(!rows.length){ notify("Aucune fiche à exporter (vérifiez les filtres).", "info"); return; }
+            const w = window.open('', '_blank');
+            if(!w){ notify("Autorisez les fenêtres pop-up, ou utilisez l'export Word.", "warn", 7000); return; }
+            w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Fiches enseignants</title><style>${DOCS_CSS}</style></head><body>${buildFichesHTML(rows)}</body></html>`);
+            w.document.close(); w.focus(); setTimeout(() => { try { w.print(); } catch(_) {} }, 500);
+            closeExportDocs();
+            notify(`${rows.length} fiche(s) prêtes : choisissez « Enregistrer en PDF » dans l'aperçu d'impression.`, "success", 7000);
+        };
+        window.exportFichesWord = function(){
+            const rows = exportedDocsRows();
+            if(!rows.length){ notify("Aucune fiche à exporter (vérifiez les filtres).", "info"); return; }
+            const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>${DOCS_CSS} div.fiche-page{page-break-after:always}</style></head><body>${buildFichesHTML(rows)}</body></html>`;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob(['\ufeff' + html], { type: 'application/msword' }));
+            a.download = `fiches-enseignants-${new Date().toISOString().slice(0, 10)}.doc`;
+            a.click(); URL.revokeObjectURL(a.href);
+            closeExportDocs();
+            notify(`${rows.length} fiche(s) exportée(s) en Word (.doc).`, "success", 6000);
         };
 
         // ---------- EXPORT CSV (liste affichée : filtre et tri appliqués) ----------
