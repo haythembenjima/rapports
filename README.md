@@ -41,8 +41,9 @@ Elle fonctionne de trois façons :
 
 Site compagnon pour constituer une **base de données des enseignants** de la discipline :
 chaque enseignant ouvre le lien et remplit sa fiche — état civil (nom, naissance, téléphone,
-e-mail), conjoint et sa profession, établissement (lycée ou collège technique), commissariat
-régional d'éducation, date de recrutement, dernière note avec l'inspecteur et sa date,
+e-mail), conjoint et sa profession, établissement principal (lycée ou collège technique) **et un
+deuxième établissement optionnel** (complément d'horaire), commissariat régional d'éducation,
+date de recrutement, dernière note avec l'inspecteur et sa date,
 **emploi du temps** du lundi au samedi (8 h → 18 h, séances de 2 h — avec salle et précision :
 quinzaine semaine A/B, groupes G1/G2, séances d'une heure, créneau partagé entre deux classes),
 et en bas la **liste des classes enseignées, déduite automatiquement de l'emploi du temps**,
