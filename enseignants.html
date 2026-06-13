@@ -44,6 +44,8 @@
         .fiche-table .cell-sub { display: flex; border-top: 1px dotted #cbd5e1; }
         .fiche-table .cell-sub input { color: #475569; font-size: .65rem; padding: 2px 1px; }
         .fiche-table .cell-sub input + input { border-left: 1px dotted #cbd5e1 !important; }
+        /* Séance au 2ème établissement (précision « 2ème étab. ») : case en ambre */
+        .fiche-table td.edt-etab2 { background-color: #fef3c7; }
 
         @media print {
             @page { margin: 0; size: A4 portrait; }
@@ -62,6 +64,7 @@
             .fiche-table .cell-sub { border-top: 1px dotted #555; }
             .fiche-table .cell-sub input { font-weight: normal; }
             .fiche-table .cell-sub input + input { border-left: 1px dotted #555 !important; }
+            .fiche-table td.edt-etab2 { background-color: #fde68a !important; }
             .print-tight { margin-bottom: .35rem !important; }
         }
 
@@ -390,7 +393,7 @@
             <!-- 2. Situation professionnelle -->
             <h2 class="font-bold text-indigo-900 border-b-2 border-indigo-200 mb-2 print-tight">2. Situation professionnelle</h2>
             <div class="grid md:grid-cols-2 gap-x-6 gap-y-2 mb-4 print-tight">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
+                <div class="grid grid-cols-2 sm:grid-cols-6 gap-3 md:col-span-2">
                     <label class="block">
                         <span class="text-sm font-semibold">Type d'établissement</span>
                         <select id="f-etab-type" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
@@ -398,12 +401,16 @@
                             <option>Collège technique</option>
                         </select>
                     </label>
-                    <label class="block sm:col-span-2">
+                    <label class="block col-span-2 sm:col-span-4">
                         <span class="text-sm font-semibold">Établissement principal <span class="text-red-600">*</span></span>
                         <input id="f-etab" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Lycée Ibn Khaldoun — Msaken">
                     </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Nb h/sem.</span>
+                        <input id="f-heures1" type="number" min="0" max="40" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="0">
+                    </label>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
+                <div class="grid grid-cols-2 sm:grid-cols-6 gap-3 md:col-span-2">
                     <label class="block">
                         <span class="text-sm font-semibold">Type (2ᵉ étab.)</span>
                         <select id="f-etab2-type" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
@@ -412,11 +419,16 @@
                             <option>Collège technique</option>
                         </select>
                     </label>
-                    <label class="block sm:col-span-2">
+                    <label class="block col-span-2 sm:col-span-4">
                         <span class="text-sm font-semibold">Deuxième établissement <span class="text-gray-400 font-normal">(complément d'horaire — si applicable)</span></span>
                         <input id="f-etab2" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="— laisser vide si un seul établissement">
                     </label>
+                    <label class="block">
+                        <span class="text-sm font-semibold">Nb h/sem.</span>
+                        <input id="f-heures2" type="number" min="0" max="40" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="0">
+                    </label>
                 </div>
+                <div class="md:col-span-2 text-sm font-semibold text-indigo-900">Nombre d'heures total : <span id="heures-total">0</span> h/semaine</div>
                 <label class="block">
                     <span class="text-sm font-semibold">Commissariat régional d'éducation <span class="text-red-600">*</span></span>
                     <input id="f-cre" type="text" list="cre-list" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Sousse">
@@ -482,6 +494,7 @@
             <p class="no-print ui-sans text-xs text-gray-500 mb-2">Dans chaque case : la <b>classe</b> en haut (ex. « 4ème EG2 », « 9ème T1 »), puis en bas la <b>salle</b> et la <b>précision</b>
                 si la séance n'est pas hebdomadaire ordinaire : « Semaine A », « Semaine B » (quinzaine), « G1 », « G2 » (groupe), « 1h (1ère heure) », « 1h (2ème heure) »… ou une combinaison (ex. « Sem. A — G1 »).
                 Si <b>deux classes se partagent le créneau</b> (1 h chacune ou alternance par quinzaine), écrivez-les séparées par « / » (ex. « 3 EG1 / 3 EG2 »). Laissez vide si pas de séance.</p>
+            <p class="no-print ui-sans text-xs text-gray-500 mb-2">Pour une séance au <b>2ème établissement</b>, choisissez la précision « <b>2ème étab.</b> » : la case se colore en <span class="px-1 rounded" style="background:#fef3c7">ambre</span> pour la distinguer.</p>
             <div class="table-scroll mb-4 print-tight">
                 <table class="fiche-table text-sm">
                     <thead>
@@ -927,7 +940,7 @@
             const stems = ['2ème ES','3ème EG','4ème EG','8ème T','9ème T'];
             $('classes-list').innerHTML = stems.flatMap(s => [1,2,3,4].map(n => s + n)).map(v => `<option value="${v}">`).join('');
             // Suggestions de précisions : quinzaine (semaine A/B), groupes, séances d'une heure.
-            const PRECISIONS = ["Semaine A","Semaine B","Quinzaine","G1","G2","G1/G2","Sem. A — G1","Sem. A — G2","Sem. B — G1","Sem. B — G2","1h (1ère heure)","1h (2ème heure)","1h + 1h"];
+            const PRECISIONS = ["2ème étab.","Semaine A","Semaine B","Quinzaine","G1","G2","G1/G2","Sem. A — G1","Sem. A — G2","Sem. B — G1","Sem. B — G2","1h (1ère heure)","1h (2ème heure)","1h + 1h"];
             $('prec-list').innerHTML = PRECISIONS.map(v => `<option value="${v}">`).join('');
 
             $('cre-list').innerHTML = CRE_LIST.map(v => `<option value="${v}">`).join('');
@@ -941,10 +954,32 @@
                 el.addEventListener('input', () => {
                     el.classList.remove('field-error');
                     if(/^edt-[a-z]+-\d\d-\d\d$/.test(el.id)) renderClasses();   // champ « classe » d'une case
+                    if(/-prec$/.test(el.id)) colorEtabCell(el);                 // séance au 2ème établissement
+                    if(el.id === 'f-heures1' || el.id === 'f-heures2') computeHeures();
                     scheduleDraft();
                 });
             });
             renderClasses();
+        }
+        // Total des heures déclarées (établissement 1 + 2).
+        function computeHeures(){
+            const h = (parseFloat($('f-heures1').value) || 0) + (parseFloat($('f-heures2').value) || 0);
+            $('heures-total').innerText = Number.isInteger(h) ? h : h.toFixed(1);
+            return h;
+        }
+        // Une séance est-elle marquée « 2ème établissement » d'après sa précision ?
+        function isEtab2(prec){
+            const f = fold(prec).replace(/\s/g, '');
+            return /(^|[^0-9])2e?(me|eme|è|ème)?etab|etab2/.test(f);
+        }
+        function colorEtabCell(precEl){
+            const td = precEl.closest('td'); if(!td) return;
+            td.classList.toggle('edt-etab2', isEtab2(precEl.value));
+        }
+        function refreshEtabColors(){
+            for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
+                const el = $(`edt-${dayKey}-${slotKey}-prec`); if(el) colorEtabCell(el);
+            }
         }
 
         // ---------- LISTE AUTOMATIQUE DES CLASSES (déduite de l'emploi du temps) ----------
@@ -999,8 +1034,10 @@
                 conjointProfession: $('f-conjoint-prof').value.trim(),
                 etabType: $('f-etab-type').value,
                 etablissement: $('f-etab').value.trim(),
+                heures1: $('f-heures1').value,
                 etab2Type: $('f-etab2-type').value,
                 etablissement2: $('f-etab2').value.trim(),
+                heures2: $('f-heures2').value,
                 cre: $('f-cre').value.trim(),
                 grade: $('f-grade').value,
                 matricule: $('f-matricule').value.trim(),
@@ -1037,8 +1074,10 @@
             $('f-conjoint-prof').value = d.conjointProfession || '';
             $('f-etab-type').value = d.etabType || 'Lycée';
             $('f-etab').value = d.etablissement || '';
+            $('f-heures1').value = d.heures1 ?? '';
             $('f-etab2-type').value = d.etab2Type || '';
             $('f-etab2').value = d.etablissement2 || '';
+            $('f-heures2').value = d.heures2 ?? '';
             $('f-cre').value = d.cre || '';
             $('f-grade').value = d.grade || '';
             $('f-matricule').value = d.matricule || '';
@@ -1062,6 +1101,8 @@
             renderClasses();
             if(d.anneeScolaire) $('f-annee').innerText = d.anneeScolaire;
             renderNotesHistory(d);
+            computeHeures();
+            refreshEtabColors();
             document.querySelectorAll('#sheet .field-error').forEach(el => el.classList.remove('field-error'));
         }
         // Évolution des notes : tableau (date, note, inspecteur) + ligne de progression « 12 → 14 → 15 ».
@@ -2024,7 +2065,7 @@
             const needle = fold($('adm-search').value);
             const rows = applyFilters(myRows().filter(r => !needle ||
                 fold([r.nom, r.etablissement, r.etablissement2, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle)));
-            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","2ᵉ établissement","CRE","Grade","Matricule CNRPS","Situation","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
+            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","Heures étab.1","2ᵉ établissement","Heures étab.2","Total heures","CRE","Grade","Matricule CNRPS","Situation","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
             for(const [,label] of NIVEAUX) cols.push(label + " — élèves");
             cols.push("Total élèves","Classes (élèves)","Emploi du temps","Année scolaire","Code","Mise à jour");
             const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
@@ -2037,7 +2078,8 @@
                     return cells.length ? `${dl} → ${cells.join(' | ')}` : null;
                 }).filter(Boolean).join('  //  ');
                 const etab2 = r.etablissement2 ? (r.etablissement2 + (r.etab2Type ? ` (${r.etab2Type})` : '')) : '';
-                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, etab2, r.cre, r.grade, r.matricule, r.situationAdmin, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
+                const totalH = (parseFloat(r.heures1) || 0) + (parseFloat(r.heures2) || 0);
+                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, r.heures1 || '', etab2, r.heures2 || '', totalH || '', r.cre, r.grade, r.matricule, r.situationAdmin, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
                 const sums = levelSums(r);
                 for(const [k] of NIVEAUX) line.push(sums[k]);
                 const classesTxt = Object.entries(r.classes || {}).map(([name, v]) => `${name}: ${v}`).join(' | ');
