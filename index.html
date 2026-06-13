@@ -753,6 +753,7 @@
             document.getElementById('app-nav').classList.remove('hidden');
             document.getElementById('report-container').classList.remove('hidden');
             maybeRestoreDraft();   // proposition non bloquante (bannière)
+            applyFichePrefill();   // pré-remplissage venant de la base des enseignants (enseignants.html)
 
             // Connexion Firebase en arrière-plan (n'empêche jamais la saisie)
             let connected = false;
@@ -1408,6 +1409,42 @@
             _pendingDraft = null;
         };
         window.maybeRestoreDraft = maybeRestoreDraft;
+
+        // Pré-remplissage de l'en-tête depuis la « Base des enseignants » (enseignants.html) :
+        // le bouton « Préparer un rapport » y ouvre cette page avec ?from=fiche&teacher=…&etab=…
+        // On ne remplit QUE les champs d'identité ; la grille, la description et la synthèse
+        // restent vierges (c'est un nouveau rapport). Le travail en cours n'est pas écrasé tant
+        // que l'inspecteur n'a rien saisi (le brouillon n'est ré-enregistré qu'à la 1re modification).
+        function applyFichePrefill() {
+            let params;
+            try { params = new URLSearchParams(location.search); } catch(e) { return; }
+            if(params.get('from') !== 'fiche') return;
+            const map = { teacher:'input-teacher', grade:'input-grade', etab:'input-establishment',
+                          recrut:'input-recrutement', lastvisit:'input-last-visit', region:'input-region', year:'input-year' };
+            let filled = 0;
+            for(const [param, id] of Object.entries(map)){
+                const v = params.get(param); const el = document.getElementById(id);
+                if(v && el){ el.value = v; filled++; }
+            }
+            const civ = params.get('civ'); if(civ){ const c = document.getElementById('input-civility'); if(c) c.value = civ; }
+            // Classes de l'enseignant : proposées en autocomplétion ; remplie d'office s'il n'y en a qu'une.
+            const classes = (params.get('classes') || '').split('|').map(s => s.trim()).filter(Boolean);
+            if(classes.length){
+                let dl = document.getElementById('fiche-classes-list');
+                if(!dl){ dl = document.createElement('datalist'); dl.id = 'fiche-classes-list'; document.body.appendChild(dl); }
+                dl.innerHTML = classes.map(c => `<option value="${c.replace(/"/g,'&quot;')}">`).join('');
+                const clsEl = document.getElementById('input-class');
+                if(clsEl){ clsEl.setAttribute('list','fiche-classes-list'); if(classes.length === 1 && !clsEl.value.trim()) clsEl.value = classes[0]; }
+            }
+            if(filled || classes.length){
+                formTouched = true;   // ne pas écraser ce pré-remplissage par la restauration différée
+                const banner = document.getElementById('draft-banner'); if(banner) banner.classList.add('hidden'); _pendingDraft = null;
+                const t = params.get('teacher') || "l'enseignant";
+                notify(`Rapport pré-rempli pour ${t} depuis la base des enseignants. Complétez la date de visite, la classe et la leçon.`, 'success', 8000);
+            }
+            // Nettoie l'URL pour qu'un rafraîchissement ne re-déclenche pas le pré-remplissage.
+            try { history.replaceState(null, '', location.pathname + location.hash); } catch(e) {}
+        }
 
         function clearDraft() {
             try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}

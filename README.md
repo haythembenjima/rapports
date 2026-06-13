@@ -74,6 +74,12 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
 - **Site installable** (PWA) : sur téléphone, menu du navigateur → « Ajouter à l'écran d'accueil » ;
   sur PC, icône d'installation dans la barre d'adresse. L'icône « Enseignants » s'ouvre alors
   comme une application.
+- **Pont avec l'application Rapport d'Inspection** : en consultant une fiche, le bouton
+  **« Préparer un rapport »** ouvre `index.html` (l'application) pré-remplie avec l'identité de
+  l'enseignant — nom, grade, établissement, date de recrutement, commissariat, dernière visite,
+  année scolaire, et ses classes proposées en autocomplétion. Seule l'identité est copiée :
+  la grille d'évaluation, la description et la synthèse restent vierges (c'est un nouveau rapport),
+  et un rapport en cours n'est pas écrasé tant que rien n'a été saisi.
 
 ### Mise en ligne (GitHub Pages)
 

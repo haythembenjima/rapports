@@ -194,6 +194,7 @@
             <div><i class="fas fa-eye"></i> Fiche de <b id="admin-bar-name"></b></div>
             <div class="flex flex-wrap gap-2">
                 <button onclick="adminBack()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-arrow-left"></i> Retour à la liste</button>
+                <button onclick="prepareReport()" title="Ouvrir l'application Rapport d'Inspection, pré-remplie avec cette fiche" class="bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-file-pen"></i> Préparer un rapport</button>
                 <button onclick="window.print()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-print"></i> Imprimer</button>
                 <button onclick="doSave()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-floppy-disk"></i> Enregistrer les modifications</button>
                 <button id="admin-del-btn" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-trash"></i> Supprimer</button>
@@ -1154,7 +1155,7 @@
             restoreTeacherForm();
         };
         function startAdminFeed(){
-            if(unsubAdmin || !db) return;
+            if(unsubAdmin || !db || !currentUser) return;
             // Migration douce : les suivis créés avant l'ajout d'ownerUid en sont dotés
             // (possible tant que les anciennes règles sont en place ; sans effet ensuite).
             getDocs(query(suiviCol(), where('insp', '==', myCode))).then(snap => {
@@ -1562,6 +1563,26 @@
             }
             notify(`${ok} fiche(s) restaurée(s).`, "success", 7000);
         }
+        // ---------- PONT VERS L'APPLICATION « RAPPORT D'INSPECTION » ----------
+        // Ouvre index.html (même dossier) pré-remplie avec l'identité de l'enseignant ouvert.
+        window.prepareReport = function(){
+            const r = adminRows.find(x => x.id === viewingAdminId);
+            if(!r){ notify("Ouvrez d'abord une fiche d'enseignant.", "error"); return; }
+            const url = new URL('index.html', location.href);
+            const p = url.searchParams;
+            p.set('from', 'fiche');
+            if(r.nom) p.set('teacher', r.nom);
+            if(r.grade) p.set('grade', r.grade);
+            if(r.etablissement) p.set('etab', r.etablissement);
+            if(r.dateRecrutement) p.set('recrut', fmtDate(r.dateRecrutement));
+            if(r.dateNote) p.set('lastvisit', fmtDate(r.dateNote));   // dernière note = dernière visite
+            if(r.cre) p.set('region', r.cre);
+            if(r.anneeScolaire) p.set('year', r.anneeScolaire);
+            const classes = Object.keys(r.classes || {});
+            if(classes.length) p.set('classes', classes.join('|'));
+            window.open(url.toString(), '_blank');
+            notify("Application Rapport d'Inspection ouverte, pré-remplie pour " + (r.nom || "l'enseignant") + ".", "success", 6000);
+        };
         // Import d'une fiche « orpheline » (remplie sans code inspecteur) dans sa propre base.
         window.importFiche = async function(id){
             try { await updateDoc(ficheDoc(id), { insp: myCode }); notify("Fiche importée dans votre base.", "success"); }
