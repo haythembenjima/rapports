@@ -96,6 +96,26 @@
     </div>
 
     <!-- Corbeille : fiches supprimées, restaurables -->
+    <!-- Accès groupé : ouvrir/verrouiller toutes les fiches de l'inspecteur (début d'année scolaire) -->
+    <div id="access-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+            <h3 class="font-bold text-lg mb-1"><i class="fas fa-key text-amber-600"></i> Accès des enseignants à leurs fiches</h3>
+            <p class="text-sm text-gray-600 mb-4">En début d'année, ouvrez l'accès pour que vos enseignants mettent à jour leur fiche (par code) pendant une période déterminée. Hors de cette période, les fiches sont verrouillées (non consultables par code). Vous gardez toujours l'accès complet depuis l'espace inspecteur.</p>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+                <label class="block text-sm">
+                    <span class="font-semibold">Ouvrir toutes mes fiches jusqu'au :</span>
+                    <input id="bulk-access-until" type="date" class="mt-1 border border-gray-300 rounded-lg px-2 py-1.5">
+                </label>
+                <button onclick="bulkOpenAccess()" class="mt-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm"><i class="fas fa-lock-open"></i> Ouvrir toutes mes fiches</button>
+            </div>
+            <button onclick="bulkLockAccess()" class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-lg text-sm w-full mb-2"><i class="fas fa-lock"></i> Verrouiller toutes mes fiches maintenant</button>
+            <p id="access-modal-status" class="text-xs text-gray-500"></p>
+            <div class="flex justify-end mt-4">
+                <button onclick="closeAccessModal()" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <div id="trash-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
         <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[85vh] flex flex-col">
             <div class="flex items-center justify-between mb-3">
@@ -182,6 +202,13 @@
             <p class="mt-1 text-xs text-gray-500"><i class="fas fa-lock"></i> Ces informations sont destinées exclusivement à l'inspection pédagogique de la discipline.</p>
         </div>
 
+        <!-- Bandeau « fiche verrouillée » (accès enseignant fermé par l'inspecteur) -->
+        <div id="locked-banner" class="hidden no-print ui-sans bg-slate-100 border border-slate-300 rounded-xl px-4 py-4 my-3 text-sm text-slate-700 shadow-sm text-center">
+            <i class="fas fa-lock text-2xl text-slate-400"></i>
+            <p class="mt-2 font-semibold" id="locked-title">Votre fiche est actuellement verrouillée par l'inspection.</p>
+            <p class="mt-1 text-slate-500" id="locked-sub">Elle sera rouverte à la consultation et à la mise à jour en début d'année scolaire.</p>
+        </div>
+
         <!-- Bandeau « fiche enregistrée » -->
         <div id="saved-banner" class="hidden no-print ui-sans bg-green-50 border border-green-300 rounded-xl px-4 py-3 my-3 text-sm text-green-900 shadow-sm">
             <i class="fas fa-circle-check"></i> Votre fiche est enregistrée dans la base.
@@ -228,6 +255,20 @@
                     <input id="suivi-remarques" type="text" class="w-full border border-gray-300 rounded-lg px-2 py-1.5" placeholder="ex. vérifier les cahiers de textes, prévoir TP…">
                 </label>
                 <button onclick="saveSuivi()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-floppy-disk"></i> Enregistrer le suivi</button>
+            </div>
+        </div>
+
+        <!-- Accès enseignant : l'inspecteur ouvre/verrouille la fiche pour la consultation par code -->
+        <div id="access-panel" class="hidden no-print ui-sans bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 my-3">
+            <div class="font-semibold text-amber-900 text-sm mb-2"><i class="fas fa-key"></i> Accès de l'enseignant (par code) — <span id="access-state">—</span></div>
+            <div class="flex flex-wrap items-end gap-3 text-sm">
+                <label class="block">
+                    <span class="text-xs text-gray-600 block mb-0.5">Ouvrir jusqu'au</span>
+                    <input id="access-until" type="date" class="border border-gray-300 rounded-lg px-2 py-1.5">
+                </label>
+                <button onclick="openFicheAccess()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-lock-open"></i> Ouvrir pour mise à jour</button>
+                <button onclick="lockFicheAccess()" class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-lock"></i> Verrouiller</button>
+                <span class="text-xs text-amber-800">L'enseignant ne peut consulter/modifier sa fiche par code que pendant la fenêtre d'ouverture.</span>
             </div>
         </div>
 
@@ -519,6 +560,7 @@
             <button onclick="document.getElementById('restore-file').click()" title="Restaurer une sauvegarde JSON" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-upload"></i> Restaurer</button>
             <input id="restore-file" type="file" accept=".json,application/json" class="hidden">
             <button onclick="openTrash()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-trash-can"></i> Corbeille</button>
+            <button onclick="openAccessModal()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-key"></i> Accès enseignants</button>
             <button onclick="adminLogout()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-right-from-bracket"></i> Quitter</button>
         </div>
 
@@ -978,6 +1020,8 @@
             try {
                 const saved = getSaved();
                 if(saved && saved.id){
+                    // Refus si l'inspection a verrouillé la fiche entre-temps.
+                    try { const cur = await getDoc(ficheDoc(saved.id)); if(cur.exists() && !accessState(cur.data()).open){ setTeacherLocked(true); notify("Votre fiche est verrouillée par l'inspection : mise à jour impossible pour le moment.", "error", 8000); btn.disabled = false; return; } } catch(_) {}
                     await updateDoc(ficheDoc(saved.id), { ...d, updatedAt: serverTimestamp() });
                     showSavedBanner(saved.code);
                     notify("Votre fiche a été mise à jour dans la base.", "success", 5000);
@@ -1031,9 +1075,13 @@
                 const snap = await getDocs(query(fichesCol(), where('code', '==', c), limit(1)));
                 if(snap.empty){ notify("Aucune fiche avec ce code.", "error"); return; }
                 const docSnap = snap.docs[0];
-                fillForm(docSnap.data());
+                const data = docSnap.data();
                 setSaved({ id: docSnap.id, code: c });
-                showSavedBanner(c, docSnap.data().updatedAt && docSnap.data().updatedAt.toDate ? docSnap.data().updatedAt.toDate() : null);
+                // Fiche verrouillée par l'inspection : non consultable par code pour le moment.
+                if(!accessState(data).open){ setTeacherLocked(true); notify("Cette fiche est verrouillée par l'inspection.", "warn", 6000); return; }
+                setTeacherLocked(false);
+                fillForm(data);
+                showSavedBanner(c, data.updatedAt && data.updatedAt.toDate ? data.updatedAt.toDate() : null);
                 $('btn-save-label').innerText = "Mettre à jour ma fiche";
                 notify("Fiche retrouvée : vous pouvez la modifier puis l'enregistrer.", "success", 6000);
             } catch(e){ notify(saveErrorMessage(e), "error", 8000); }
@@ -1166,6 +1214,7 @@
             if(unsubAdmin){ unsubAdmin(); unsubAdmin = null; }
             if(unsubSuivi){ unsubSuivi(); unsubSuivi = null; }
             $('suivi-panel').classList.add('hidden');
+            $('access-panel').classList.add('hidden');
             viewingAdminId = null;
             $('view-admin').classList.add('hidden');
             $('admin-bar').classList.add('hidden');
@@ -1192,6 +1241,7 @@
                 $('adm-error').classList.add('hidden');
                 adminRows = snap.docs.map(s => ({ id: s.id, ...s.data() }));
                 renderAdmin();
+                if(viewingAdminId){ const rr = adminRows.find(x => x.id === viewingAdminId); if(rr) renderAccessPanel(rr); }
             }, e => {
                 unsubAdmin = null;   // l'écouteur est arrêté par l'erreur : autoriser une nouvelle tentative
                 $('adm-error').innerHTML = '<i class="fas fa-triangle-exclamation"></i> <b>Lecture refusée par le serveur.</b> ' +
@@ -1202,6 +1252,73 @@
         }
         function noteOf(r){ const n = parseFloat(r.derniereNote); return isNaN(n) ? null : n; }
         function majOf(r){ return r.updatedAt && r.updatedAt.toDate ? r.updatedAt.toDate() : null; }
+        // ---------- ACCÈS ENSEIGNANT (verrouillage / fenêtre d'ouverture par l'inspecteur) ----------
+        function todayISO(){ return new Date().toISOString().slice(0,10); }
+        // Par défaut une fiche est ouverte (création/legacy). « locked » la ferme ; « openUntil »
+        // l'ouvre jusqu'à une date (au-delà, elle se referme automatiquement).
+        function accessState(r){
+            if(r && r.locked === true) return { open:false, mode:'locked' };
+            if(r && r.openUntil) return { open: todayISO() <= r.openUntil, mode:'window', until:r.openUntil };
+            return { open:true, mode:'default' };
+        }
+        function accessLabel(r){
+            const st = accessState(r);
+            if(st.mode === 'locked') return 'Verrouillée';
+            if(st.mode === 'window') return st.open ? ("Ouverte jusqu'au " + fmtDate(st.until)) : ('Fermée (fenêtre expirée le ' + fmtDate(st.until) + ')');
+            return 'Ouverte (par défaut)';
+        }
+        function accessIcon(r){
+            const st = accessState(r);
+            if(st.mode === 'locked') return '<i class="fas fa-lock text-slate-400" title="Verrouillée pour l\'enseignant"></i>';
+            if(st.mode === 'window' && st.open) return `<i class="fas fa-lock-open text-green-500" title="Ouverte à l\'enseignant jusqu\'au ${fmtDate(st.until)}"></i>`;
+            if(st.mode === 'window') return `<i class="fas fa-lock text-slate-400" title="Fenêtre expirée le ${fmtDate(st.until)}"></i>`;
+            return '';
+        }
+        // Affichage côté enseignant : masque la fiche quand l'accès est fermé.
+        function setTeacherLocked(locked){
+            $('locked-banner').classList.toggle('hidden', !locked);
+            $('sheet').classList.toggle('hidden', locked);
+            $('teacher-intro').classList.toggle('hidden', locked);
+            $('teacher-actions').classList.toggle('hidden', locked);
+        }
+        function renderAccessPanel(r){
+            $('access-state').innerText = accessLabel(r);
+            $('access-until').value = r.openUntil || '';
+        }
+        window.openFicheAccess = async function(){
+            if(!viewingAdminId) return;
+            const until = $('access-until').value;
+            if(!until){ notify("Choisissez une date (« Ouvrir jusqu'au … »).", "error"); return; }
+            try { await updateDoc(ficheDoc(viewingAdminId), { locked:false, openUntil:until }); notify("Fiche ouverte à l'enseignant jusqu'au " + fmtDate(until) + ".", "success"); }
+            catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+        };
+        window.lockFicheAccess = async function(){
+            if(!viewingAdminId) return;
+            try { await updateDoc(ficheDoc(viewingAdminId), { locked:true, openUntil:'' }); notify("Fiche verrouillée : l'enseignant ne peut plus y accéder par code.", "success"); }
+            catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+        };
+        window.openAccessModal = function(){ $('access-modal-status').innerText = ''; $('access-modal').classList.remove('hidden'); };
+        window.closeAccessModal = function(){ $('access-modal').classList.add('hidden'); };
+        window.bulkOpenAccess = async function(){
+            const until = $('bulk-access-until').value;
+            if(!until){ notify("Choisissez une date d'ouverture.", "error"); return; }
+            const mine = myRows();
+            if(!mine.length){ notify("Aucune fiche dans votre base.", "info"); return; }
+            if(!await appConfirm(`Ouvrir l'accès de vos ${mine.length} fiche(s) jusqu'au ${fmtDate(until)} ?`)) return;
+            let n = 0;
+            for(const r of mine){ try { await updateDoc(ficheDoc(r.id), { locked:false, openUntil:until }); n++; } catch(_) {} }
+            $('access-modal-status').innerText = `${n} fiche(s) ouverte(s) jusqu'au ${fmtDate(until)}.`;
+            notify(`${n} fiche(s) ouverte(s) à la mise à jour.`, "success", 6000);
+        };
+        window.bulkLockAccess = async function(){
+            const mine = myRows();
+            if(!mine.length){ notify("Aucune fiche dans votre base.", "info"); return; }
+            if(!await appConfirm(`Verrouiller vos ${mine.length} fiche(s) ? Les enseignants ne pourront plus y accéder par code.`)) return;
+            let n = 0;
+            for(const r of mine){ try { await updateDoc(ficheDoc(r.id), { locked:true, openUntil:'' }); n++; } catch(_) {} }
+            $('access-modal-status').innerText = `${n} fiche(s) verrouillée(s).`;
+            notify(`${n} fiche(s) verrouillée(s).`, "success", 6000);
+        };
         // Élèves par niveau d'une fiche : déduits du premier chiffre du nom de chaque classe
         // (« 3 EG2 » → 3ème EG). Les anciennes fiches utilisaient un champ « niveaux » direct.
         function levelSums(r){
@@ -1385,7 +1502,7 @@
             $('adm-empty').classList.toggle('hidden', mine.length > 0);
             $('adm-table-body').innerHTML = rows.map(r => `
                 <tr class="border-t hover:bg-indigo-50/40">
-                    <td class="p-2.5"><button class="text-indigo-700 font-semibold hover:underline" onclick="adminView('${r.id}')">${escapeHtml(r.nom) || '—'}</button>${isNew(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">nouvelle</span>' : ''}${isIncomplete(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-700" title="Emploi du temps ou effectifs manquants">incomplète</span>' : ''}${showSessions ? `<div class="text-[11px] text-emerald-700 mt-0.5"><i class="fas fa-clock"></i> ${escapeHtml(edtSessions(r, fJour, fSlot).join('  ·  '))}</div>` : ''}</td>
+                    <td class="p-2.5"><button class="text-indigo-700 font-semibold hover:underline" onclick="adminView('${r.id}')">${escapeHtml(r.nom) || '—'}</button> ${accessIcon(r)}${isNew(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">nouvelle</span>' : ''}${isIncomplete(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-700" title="Emploi du temps ou effectifs manquants">incomplète</span>' : ''}${showSessions ? `<div class="text-[11px] text-emerald-700 mt-0.5"><i class="fas fa-clock"></i> ${escapeHtml(edtSessions(r, fJour, fSlot).join('  ·  '))}</div>` : ''}</td>
                     <td class="p-2.5">${escapeHtml(r.grade || '—')}</td>
                     <td class="p-2.5">${escapeHtml(r.etablissement)}${r.etabType ? `<span class="text-gray-400 text-xs"> (${escapeHtml(r.etabType)})</span>` : ''}${r.etablissement2 ? `<div class="text-[11px] text-gray-500" title="Deuxième établissement (complément d'horaire)"><i class="fas fa-plus"></i> ${escapeHtml(r.etablissement2)}</div>` : ''}</td>
                     <td class="p-2.5">${escapeHtml(r.cre)}</td>
@@ -1465,10 +1582,14 @@
             $('view-form').classList.remove('hidden');
             $('admin-bar').classList.remove('hidden');
             $('suivi-panel').classList.remove('hidden');
+            $('access-panel').classList.remove('hidden');
             fillSuiviPanel(id);
+            renderAccessPanel(r);
             $('teacher-intro').classList.add('hidden');
             $('teacher-actions').classList.add('hidden');
             $('saved-banner').classList.add('hidden');
+            $('locked-banner').classList.add('hidden');   // l'inspecteur a toujours l'accès complet
+            $('sheet').classList.remove('hidden');
             window.scrollTo(0, 0);
         };
         window.adminBack = function(){
@@ -1476,6 +1597,7 @@
             $('view-form').classList.add('hidden');
             $('admin-bar').classList.add('hidden');
             $('suivi-panel').classList.add('hidden');
+            $('access-panel').classList.add('hidden');
             $('view-admin').classList.remove('hidden');
             restoreTeacherForm();
         };
@@ -1592,6 +1714,7 @@
             const url = new URL('index.html', location.href);
             const p = url.searchParams;
             p.set('from', 'fiche');
+            p.set('fid', viewingAdminId);   // identifiant de la fiche, pour la mise à jour après le rapport
             if(r.nom) p.set('teacher', r.nom);
             if(r.grade) p.set('grade', r.grade);
             if(r.etablissement) p.set('etab', r.etablissement);
@@ -1658,11 +1781,14 @@
 
         // ---------- CHARGEMENT INITIAL CÔTÉ ENSEIGNANT ----------
         async function restoreTeacherForm(){
+            setTeacherLocked(false);   // visible par défaut ; on reverrouille seulement si nécessaire
             const saved = getSaved();
             if(saved && saved.id && currentUser){
                 try {
                     const s = await getDoc(ficheDoc(saved.id));
                     if(s.exists()){
+                        // Fiche verrouillée par l'inspection : on masque la fiche et on l'annonce.
+                        if(!accessState(s.data()).open){ setTeacherLocked(true); return; }
                         fillForm(s.data());
                         showSavedBanner(saved.code, s.data().updatedAt && s.data().updatedAt.toDate ? s.data().updatedAt.toDate() : null);
                         $('btn-save-label').innerText = "Mettre à jour ma fiche";
