@@ -1,10 +1,10 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.22/Rapport-Inspection.apk)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.23/Rapport-Inspection.apk)
 
 > **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
-> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.22/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.23/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
@@ -95,6 +95,17 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
   inspecteur indique le nombre de visites.
 - **QR code du lien** : dans l'espace inspecteur, un bouton **« QR code »** affiche/télécharge/imprime
   le QR de votre lien personnel — pratique pour le diffuser en réunion (les enseignants le scannent).
+- **Import CSV** (espace inspecteur → *Importer (CSV)*) : crée des fiches **en lot** depuis un fichier
+  CSV (colonnes : Nom obligatoire, Établissement, Téléphone, E-mail, CRE, Grade, Matricule). Un
+  **modèle** est téléchargeable. Pratique pour préremplir le « roster » en début d'année ; chaque
+  fiche reçoit un code (récupérable via *Export CSV*).
+- **Envoi automatique du code par e-mail (EmailJS, optionnel)** : espace inspecteur →
+  *Réglages e-mail*. Créez un compte gratuit sur [emailjs.com](https://www.emailjs.com), un *service*
+  (connectez votre Gmail) et un *template* contenant les variables `{{to_email}}`, `{{code}}` et
+  `{{message}}`, puis collez **Service ID / Template ID / Public Key**. Le code part alors
+  **automatiquement** par e-mail dès qu'un enseignant enregistre sa fiche. Sans configuration, le
+  bouton « Recevoir le code par e-mail » reste disponible. *(Astuce : dans EmailJS, restreignez
+  l'usage au domaine `haythembenjima.github.io` pour protéger votre quota.)*
 - **Verrouillage / ouverture par l'inspecteur** : l'inspecteur décide quand la fiche n'est plus
   consultable par l'enseignant (par code), et quand elle se rouvre — typiquement **en début
   d'année scolaire, pour une durée déterminée** (« Ouvrir jusqu'au … »). Au-delà de cette date,
