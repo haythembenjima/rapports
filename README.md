@@ -1,10 +1,10 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.18/Rapport-Inspection.apk)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.19/Rapport-Inspection.apk)
 
 > **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
-> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.18/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.19/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
@@ -81,6 +81,15 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
   année scolaire, et ses classes proposées en autocomplétion. Seule l'identité est copiée :
   la grille d'évaluation, la description et la synthèse restent vierges (c'est un nouveau rapport),
   et un rapport en cours n'est pas écrasé tant que rien n'a été saisi.
+- **Mise à jour automatique de la fiche après un rapport** : quand un rapport « préparé » depuis
+  une fiche est enregistré, la fiche correspondante est mise à jour — **date de la dernière visite,
+  note /20 et nom de l'inspecteur**.
+- **Verrouillage / ouverture par l'inspecteur** : l'inspecteur décide quand la fiche n'est plus
+  consultable par l'enseignant (par code), et quand elle se rouvre — typiquement **en début
+  d'année scolaire, pour une durée déterminée** (« Ouvrir jusqu'au … »). Au-delà de cette date,
+  la fiche se reverrouille automatiquement. Contrôle **par fiche** (panneau « Accès de l'enseignant »)
+  ou **groupé** pour toutes ses fiches (bouton « Accès enseignants »). L'inspecteur garde toujours
+  l'accès complet ; un cadenas dans la liste indique l'état de chaque fiche.
 
 > **Dans les applications installées (Windows `.exe` / Android `.apk`)** : la base des enseignants
 > est **embarquée**. Un bouton « **Base des enseignants** » apparaît dans la barre de l'application
