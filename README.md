@@ -1,10 +1,10 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.24/Rapport-Inspection.apk)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.25/Rapport-Inspection.apk)
 
 > **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
-> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.24/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.25/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
@@ -101,6 +101,13 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
   CSV (colonnes : Nom obligatoire, Établissement, Téléphone, E-mail, CRE, Grade, Matricule). Un
   **modèle** est téléchargeable. Pratique pour préremplir le « roster » en début d'année ; chaque
   fiche reçoit un code (récupérable via *Export CSV*).
+- **Tableau de bord par établissement** (vue *Établissements*) : nombre d'enseignants, total d'élèves,
+  heures déclarées, visites faites et **reste à visiter** par établissement ; un clic filtre la liste
+  sur l'établissement.
+- **Avis de réouverture par e-mail** : à l'ouverture des fiches (par fiche ou en lot, case à cocher),
+  chaque enseignant peut être **prévenu par e-mail** (code + date limite + lien) via EmailJS.
+- **Déduplication** (bouton *Doublons*) : repère les fiches de même nom et les **fusionne** (la fiche
+  la plus complète est conservée, l'historique des notes est réuni, les autres vont à la corbeille).
 - **Envoi automatique du code par e-mail (EmailJS, optionnel)** : espace inspecteur →
   *Réglages e-mail*. Créez un compte gratuit sur [emailjs.com](https://www.emailjs.com), un *service*
   (connectez votre Gmail) et un *template* contenant les variables `{{to_email}}`, `{{code}}` et
