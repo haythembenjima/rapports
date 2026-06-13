@@ -1,10 +1,10 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.23/Rapport-Inspection.apk)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.24/Rapport-Inspection.apk)
 
 > **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
-> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.23/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.24/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
@@ -44,8 +44,10 @@ chaque enseignant ouvre le lien et remplit sa fiche — état civil (nom, naissa
 e-mail), conjoint et sa profession, établissement principal (lycée ou collège technique) **et un
 deuxième établissement optionnel** (complément d'horaire), commissariat régional d'éducation,
 date de recrutement, dernière note avec l'inspecteur et sa date,
+le **nombre d'heures par établissement** (avec total),
 **emploi du temps** du lundi au samedi (8 h → 18 h, séances de 2 h — avec salle et précision :
-quinzaine semaine A/B, groupes G1/G2, séances d'une heure, créneau partagé entre deux classes),
+quinzaine semaine A/B, groupes G1/G2, séances d'une heure, créneau partagé entre deux classes,
+ou **« 2ème étab. »** qui colore la case en ambre pour distinguer les séances du 2ᵉ établissement),
 et en bas la **liste des classes enseignées, déduite automatiquement de l'emploi du temps**,
 avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8ème et 9ème).
 
