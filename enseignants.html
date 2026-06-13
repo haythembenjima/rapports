@@ -13,6 +13,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <!-- QR code du lien à partager (généré côté client, aucune donnée envoyée) -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- Envoi d'e-mail côté client (EmailJS) — actif seulement si l'inspecteur l'a configuré -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <style>
         body { font-family: "Times New Roman", Times, serif; background-color: #f3f4f6; }
         .ui-sans { font-family: ui-sans-serif, system-ui, sans-serif; }
@@ -109,6 +111,42 @@
                 <button onclick="downloadQR()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm"><i class="fas fa-download"></i> Télécharger (PNG)</button>
                 <button onclick="printQR()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-print"></i> Imprimer</button>
                 <button onclick="closeQR()" class="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import CSV : créer des fiches en lot (roster de début d'année) -->
+    <div id="import-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+            <h3 class="font-bold text-lg mb-1"><i class="fas fa-file-import text-emerald-600"></i> Importer des enseignants (CSV)</h3>
+            <p class="text-sm text-gray-600 mb-3">Créez plusieurs fiches d'un coup à partir d'un fichier CSV (Excel → « Enregistrer sous » → CSV). Chaque fiche reçoit un code ; complétez-la ensuite ou laissez l'enseignant la compléter.</p>
+            <p class="text-xs text-gray-500 mb-2">Colonnes reconnues (1re ligne = en-têtes) : <b>Nom</b> (obligatoire), Établissement, Téléphone, E-mail, CRE, Grade, Matricule. Séparateur « ; » ou « , ».</p>
+            <div class="flex gap-2 items-center flex-wrap mb-3">
+                <button onclick="downloadImportTemplate()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-download"></i> Modèle CSV</button>
+                <input id="import-file" type="file" accept=".csv,text/csv" class="text-sm">
+            </div>
+            <p id="import-status" class="text-sm text-gray-600 mb-3"></p>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeImport()" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Fermer</button>
+                <button id="import-go" onclick="runImport()" disabled class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"><i class="fas fa-file-import"></i> Importer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Réglages e-mail (EmailJS) : envoi automatique du code à l'enseignant -->
+    <div id="emailcfg-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+            <h3 class="font-bold text-lg mb-1"><i class="fas fa-envelope-circle-check text-indigo-600"></i> Envoi automatique du code (EmailJS)</h3>
+            <p class="text-sm text-gray-600 mb-3">Pour que le code parte <b>automatiquement</b> par e-mail dès qu'un enseignant enregistre sa fiche, créez un compte gratuit sur <b>emailjs.com</b>, un « service » (connectez votre Gmail) et un « template », puis collez ci-dessous les 3 identifiants. Sans ça, le bouton « Recevoir le code par e-mail » reste disponible.</p>
+            <label class="block text-sm mb-2"><span class="font-semibold">Service ID</span><input id="ej-service" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="service_xxxxxxx"></label>
+            <label class="block text-sm mb-2"><span class="font-semibold">Template ID</span><input id="ej-template" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="template_xxxxxxx"></label>
+            <label class="block text-sm mb-2"><span class="font-semibold">Public Key</span><input id="ej-key" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="clé publique EmailJS"></label>
+            <p class="text-xs text-gray-500 mb-3">Le template doit contenir les variables <code>{{to_email}}</code> (destinataire), <code>{{code}}</code> et <code>{{message}}</code>.</p>
+            <p id="emailcfg-status" class="text-sm text-gray-600 mb-3"></p>
+            <div class="flex justify-end gap-2">
+                <button onclick="testEmailCfg()" class="px-3 py-2 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-sm">Envoyer un test</button>
+                <button onclick="closeEmailCfg()" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Fermer</button>
+                <button onclick="saveEmailCfg()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"><i class="fas fa-floppy-disk"></i> Enregistrer</button>
             </div>
         </div>
     </div>
@@ -588,11 +626,13 @@
                 <button id="mode-planning" onclick="setViewMode('planning')" class="px-3 py-2 bg-white text-gray-700 hover:bg-gray-50"><i class="fas fa-calendar-week"></i> Planning</button>
             </div>
             <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-csv"></i> Export CSV</button>
+            <button onclick="openImport()" title="Créer des fiches en lot depuis un fichier CSV" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-import"></i> Importer (CSV)</button>
             <button onclick="exportBackup()" title="Télécharger toute votre base (fichier JSON à conserver)" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-download"></i> Sauvegarde</button>
             <button onclick="document.getElementById('restore-file').click()" title="Restaurer une sauvegarde JSON" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-upload"></i> Restaurer</button>
             <input id="restore-file" type="file" accept=".json,application/json" class="hidden">
             <button onclick="openTrash()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-trash-can"></i> Corbeille</button>
             <button onclick="openAccessModal()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-key"></i> Accès enseignants</button>
+            <button onclick="openEmailCfg()" title="Configurer l'envoi automatique du code par e-mail (EmailJS)" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-envelope-circle-check"></i> Réglages e-mail</button>
             <button onclick="adminLogout()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-right-from-bracket"></i> Quitter</button>
         </div>
 
@@ -1117,6 +1157,9 @@
                     setSaved({ id: ref.id, code });
                     showSavedBanner(code);
                     notify("Fiche enregistrée ! Notez votre code personnel : " + code, "success", 9000);
+                    // Envoi automatique du code par e-mail si l'inspecteur a configuré EmailJS.
+                    sendCodeEmailAuto((d.email || '').trim(), code, (d.insp || '').trim())
+                        .then(ok => { if(ok) notify("Le code vous a aussi été envoyé par e-mail.", "success", 6000); });
                 }
                 localStorage.removeItem(DRAFT_KEY);
                 localStorage.removeItem(PENDING_KEY);
@@ -1334,6 +1377,112 @@
             w.document.write('<div style="text-align:center;font-family:sans-serif;padding:24px"><h3>Fiche enseignant — scannez pour remplir</h3><img src="' + url + '" style="width:300px;height:300px"><p style="font-size:12px;color:#555;word-break:break-all">' + escapeHtml($('adm-share-link').value) + '</p></div>');
             w.document.close(); w.focus(); setTimeout(() => { try { w.print(); } catch(_) {} }, 250);
         };
+
+        // ---------- IMPORT CSV (création de fiches en lot) ----------
+        let importRows = [];
+        window.openImport = function(){ $('import-status').innerText = ''; importRows = []; $('import-go').disabled = true; $('import-file').value = ''; $('import-modal').classList.remove('hidden'); };
+        window.closeImport = function(){ $('import-modal').classList.add('hidden'); };
+        window.downloadImportTemplate = function(){
+            const csv = 'Nom;Établissement;Téléphone;E-mail;CRE;Grade;Matricule\r\n"Ben Salah Ahmed";"Lycée Ibn Khaldoun — Msaken";"98123456";"prof@example.tn";"Sousse";"PES";"0123456/8"\r\n';
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+            a.download = 'modele-enseignants.csv'; a.click(); URL.revokeObjectURL(a.href);
+        };
+        function parseCSV(text){
+            text = text.replace(/^\ufeff/, '');
+            const first = text.split(/\r?\n/)[0] || '';
+            const delim = (first.split(';').length > first.split(',').length) ? ';' : ',';
+            const rows = []; let row = [], cur = '', q = false;
+            for(let i = 0; i < text.length; i++){
+                const c = text[i];
+                if(q){ if(c === '"'){ if(text[i+1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+                else if(c === '"') q = true;
+                else if(c === delim){ row.push(cur); cur = ''; }
+                else if(c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; }
+                else if(c !== '\r') cur += c;
+            }
+            if(cur !== '' || row.length){ row.push(cur); rows.push(row); }
+            return rows.filter(r => r.some(c => (c || '').trim() !== ''));
+        }
+        function mapHeader(h){
+            const f = fold(h);
+            if(/^nom/.test(f) || f.includes('prenom')) return 'nom';
+            if(f.includes('etablissement')) return 'etablissement';
+            if(f.includes('tel')) return 'telephone';
+            if(f.includes('mail')) return 'email';
+            if(f === 'cre' || f.includes('commissariat') || f.includes('region')) return 'cre';
+            if(f.includes('grade')) return 'grade';
+            if(f.includes('matricule') || f.includes('cnrps')) return 'matricule';
+            return null;
+        }
+        function handleImportFile(file){
+            file.text().then(txt => {
+                const rows = parseCSV(txt);
+                if(rows.length < 2){ $('import-status').innerText = "Fichier vide ou sans ligne de données."; $('import-go').disabled = true; return; }
+                const headers = rows[0].map(mapHeader);
+                if(headers.indexOf('nom') < 0){ $('import-status').innerText = "Colonne « Nom » introuvable dans la 1re ligne."; $('import-go').disabled = true; return; }
+                importRows = [];
+                for(let i = 1; i < rows.length; i++){
+                    const obj = {}; headers.forEach((k, idx) => { if(k) obj[k] = (rows[i][idx] || '').trim(); });
+                    if(obj.nom) importRows.push(obj);
+                }
+                $('import-status').innerText = `${importRows.length} enseignant(s) détecté(s). Cliquez sur « Importer ».`;
+                $('import-go').disabled = importRows.length === 0;
+            }).catch(() => { $('import-status').innerText = "Fichier illisible."; });
+        }
+        window.runImport = async function(){
+            if(!importRows.length || !db || !myCode) return;
+            if(!await appConfirm(`Créer ${importRows.length} fiche(s) dans votre base ?`)) return;
+            let n = 0;
+            for(const r of importRows){
+                try { await addDoc(fichesCol(), { ...r, insp: myCode, code: genCode(), ownerUid: currentUser ? currentUser.uid : null, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }); n++; } catch(_) {}
+            }
+            $('import-status').innerText = `${n} fiche(s) créée(s). Astuce : « Export CSV » pour récupérer les codes à transmettre.`;
+            notify(`${n} fiche(s) importée(s) dans votre base.`, "success", 6000);
+            importRows = []; $('import-go').disabled = true;
+        };
+
+        // ---------- ENVOI AUTOMATIQUE DU CODE PAR E-MAIL (EmailJS) ----------
+        window.openEmailCfg = async function(){
+            $('emailcfg-status').innerText = '';
+            try { const s = await getDoc(inspProfileDoc(currentUser.uid)); const e = (s.exists() && s.data().emailjs) || {}; $('ej-service').value = e.serviceId || ''; $('ej-template').value = e.templateId || ''; $('ej-key').value = e.publicKey || ''; } catch(_) {}
+            $('emailcfg-modal').classList.remove('hidden');
+        };
+        window.closeEmailCfg = function(){ $('emailcfg-modal').classList.add('hidden'); };
+        function emailCfgInputs(){ return { serviceId: $('ej-service').value.trim(), templateId: $('ej-template').value.trim(), publicKey: $('ej-key').value.trim() }; }
+        window.saveEmailCfg = async function(){
+            const cfg = emailCfgInputs();
+            try { await updateDoc(inspProfileDoc(currentUser.uid), { emailjs: cfg }); notify("Réglages e-mail enregistrés.", "success"); $('emailcfg-status').innerText = (cfg.serviceId && cfg.templateId && cfg.publicKey) ? "Enregistré : l'envoi automatique est actif." : "Enregistré (champs vides : envoi automatique désactivé)."; }
+            catch(e){ notify(saveErrorMessage(e), "error", 8000); }
+        };
+        window.testEmailCfg = async function(){
+            const cfg = emailCfgInputs();
+            const to = emailUser() ? emailUser().email : '';
+            if(!cfg.serviceId || !cfg.templateId || !cfg.publicKey){ $('emailcfg-status').innerText = "Renseignez les 3 identifiants."; return; }
+            if(typeof emailjs === 'undefined'){ $('emailcfg-status').innerText = "EmailJS non chargé (connexion requise)."; return; }
+            try { await emailjs.send(cfg.serviceId, cfg.templateId, { to_email: to, code: 'TEST00', message: "Test d'envoi du code de fiche enseignant." }, { publicKey: cfg.publicKey }); $('emailcfg-status').innerText = "Test envoyé à " + to + ". Vérifiez la réception."; }
+            catch(e){ $('emailcfg-status').innerText = "Échec : " + (e && (e.text || e.message) || e); }
+        };
+        // Récupère la config EmailJS de l'inspecteur d'après son code (côté enseignant).
+        async function emailCfgByCode(code){
+            if(!code || !db) return null;
+            try {
+                const snap = await getDocs(query(collection(db, 'artifacts', appId, 'public', 'data', 'enseignants_config'), where('code', '==', code), limit(1)));
+                if(!snap.empty){ const c = snap.docs[0].data().emailjs; if(c && c.serviceId && c.templateId && c.publicKey) return c; }
+            } catch(_) {}
+            return null;
+        }
+        async function sendCodeEmailAuto(email, code, inspCode){
+            if(!email || !code || !inspCode || typeof emailjs === 'undefined') return false;
+            const cfg = await emailCfgByCode(inspCode);
+            if(!cfg) return false;
+            try {
+                await emailjs.send(cfg.serviceId, cfg.templateId, {
+                    to_email: email, code: code,
+                    message: "Votre code personnel de fiche enseignant : " + code + ". Conservez-le pour modifier votre fiche."
+                }, { publicKey: cfg.publicKey });
+                return true;
+            } catch(_) { return false; }
+        }
         window.adminLogout = function(){
             // Ferme l'espace inspecteur (sans déconnecter le compte) et revient au formulaire.
             if(unsubAdmin){ unsubAdmin(); unsubAdmin = null; }
@@ -1956,6 +2105,7 @@
             e.target.value = '';
             if(f) restoreBackup(f);
         });
+        $('import-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if(f) handleImportFile(f); });
         // Site installable (PWA) : le service worker ne gère QUE les fichiers du site enseignants.
         // Inutile (et indésirable) dans l'app installée Electron/Capacitor : on ne l'enregistre pas.
         if('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !isPackagedApp()){
