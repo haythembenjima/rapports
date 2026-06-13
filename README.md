@@ -1,10 +1,10 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.21/Rapport-Inspection.apk)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.22/Rapport-Inspection.apk)
 
 > **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
-> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.21/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.22/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
@@ -89,7 +89,12 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
   et un rapport en cours n'est pas écrasé tant que rien n'a été saisi.
 - **Mise à jour automatique de la fiche après un rapport** : quand un rapport « préparé » depuis
   une fiche est enregistré, la fiche correspondante est mise à jour — **date de la dernière visite,
-  note /20 et nom de l'inspecteur**.
+  note /20 et nom de l'inspecteur** — et la note est **ajoutée à l'historique** de l'enseignant.
+- **Évolution des notes** : chaque fiche conserve l'**historique des visites** (date, note,
+  inspecteur) ; la fiche affiche la **progression** (ex. `12 → 14 → 15`) et la liste de l'espace
+  inspecteur indique le nombre de visites.
+- **QR code du lien** : dans l'espace inspecteur, un bouton **« QR code »** affiche/télécharge/imprime
+  le QR de votre lien personnel — pratique pour le diffuser en réunion (les enseignants le scannent).
 - **Verrouillage / ouverture par l'inspecteur** : l'inspecteur décide quand la fiche n'est plus
   consultable par l'enseignant (par code), et quand elle se rouvre — typiquement **en début
   d'année scolaire, pour une durée déterminée** (« Ouvrir jusqu'au … »). Au-delà de cette date,

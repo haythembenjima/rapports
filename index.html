@@ -188,7 +188,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.20.0</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.21.0</span>
         </div>
     </div>
 
@@ -563,8 +563,8 @@
         const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
         // ---------- MISE À JOUR AUTOMATIQUE (Windows + Android) ----------
-        const APP_VERSION = '1.20.0';          // version web/Windows (tags v*)
-        const ANDROID_VERSION = '1.7.21';      // version APK Android (tags android-v*)
+        const APP_VERSION = '1.21.0';          // version web/Windows (tags v*)
+        const ANDROID_VERSION = '1.7.22';      // version APK Android (tags android-v*)
         const REPO_RELEASES_API = 'https://api.github.com/repos/haythembenjima/rapports/releases/latest';
         const REPO_RELEASES_LIST = 'https://api.github.com/repos/haythembenjima/rapports/releases?per_page=30';
         function isNewerVersion(remote, local){
@@ -1424,13 +1424,22 @@
         async function updateFicheAfterReport() {
             if(!prefillFicheId || !db || !currentUser) return;
             try {
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'enseignants', prefillFicheId), {
-                    dateNote: document.getElementById('input-date').value || '',
-                    derniereNote: (document.getElementById('final-score-display').value || '').trim(),
-                    inspecteur: document.getElementById('input-inspector').value || '',
-                    updatedAt: Timestamp.now()
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'enseignants', prefillFicheId);
+                const date = document.getElementById('input-date').value || '';
+                const note = (document.getElementById('final-score-display').value || '').trim();
+                const inspecteur = document.getElementById('input-inspector').value || '';
+                // Historique des notes : on conserve chaque visite (date, note, inspecteur).
+                // Dédoublonnage par date (ré-enregistrer le même rapport met à jour l'entrée).
+                let history = [];
+                try { const s = await getDoc(ref); if(s.exists() && Array.isArray(s.data().notesHistory)) history = s.data().notesHistory.slice(); } catch(_) {}
+                const entry = { date, note, inspecteur, ts: Date.now() };
+                const i = date ? history.findIndex(h => h && h.date === date) : -1;
+                if(i >= 0) history[i] = entry; else history.push(entry);
+                await updateDoc(ref, {
+                    dateNote: date, derniereNote: note, inspecteur,
+                    notesHistory: history, updatedAt: Timestamp.now()
                 });
-                notify("Fiche enseignant mise à jour (dernière visite, note, inspecteur).", "info", 6000);
+                notify("Fiche enseignant mise à jour (dernière visite, note, inspecteur, historique).", "info", 6000);
             } catch(e) { /* la sauvegarde du rapport prime ; on n'interrompt pas */ }
         }
 
