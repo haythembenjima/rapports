@@ -188,7 +188,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.18.0</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.19.0</span>
         </div>
     </div>
 
@@ -563,8 +563,8 @@
         const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
         // ---------- MISE À JOUR AUTOMATIQUE (Windows + Android) ----------
-        const APP_VERSION = '1.18.0';          // version web/Windows (tags v*)
-        const ANDROID_VERSION = '1.7.19';      // version APK Android (tags android-v*)
+        const APP_VERSION = '1.19.0';          // version web/Windows (tags v*)
+        const ANDROID_VERSION = '1.7.20';      // version APK Android (tags android-v*)
         const REPO_RELEASES_API = 'https://api.github.com/repos/haythembenjima/rapports/releases/latest';
         const REPO_RELEASES_LIST = 'https://api.github.com/repos/haythembenjima/rapports/releases?per_page=30';
         function isNewerVersion(remote, local){
@@ -737,6 +737,7 @@
             buildMobileCards();
             currentAdminPassHash = await hashText(DEFAULT_PASS);
             attachAutoDraft();
+            setupDateInputs();   // masque jj/mm/aaaa (dates lointaines) + calendrier (dates proches)
             updateBankStatus();
             // Mode IA par défaut : en ligne si connecté, sinon hors-ligne (banque)
             const aiCb = document.getElementById('ai-mode-online');
@@ -2297,6 +2298,52 @@ ${buildJargonGuide()}`;
             m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
             if(m) return new Date(+m[3], +m[2]-1, +m[1]).getTime();
             return null;
+        }
+        // Saisie de date au format jj/mm/aaaa : l'utilisateur tape 8 chiffres, les « / » sont
+        // insérés automatiquement (jour → mois → année), sans déplacer le curseur ni taper « / ».
+        function attachDateMask(el){
+            if(!el || el.dataset.maskOn) return;
+            el.dataset.maskOn = '1';
+            el.setAttribute('inputmode', 'numeric');
+            el.setAttribute('placeholder', 'jj/mm/aaaa');
+            el.addEventListener('input', () => {
+                const dgt = el.value.replace(/\D/g, '').slice(0, 8);
+                let out = dgt.slice(0, 2);
+                if(dgt.length >= 3) out += '/' + dgt.slice(2, 4);
+                if(dgt.length >= 5) out += '/' + dgt.slice(4, 8);
+                if(el.value !== out) el.value = out;
+            });
+        }
+        // Bouton calendrier (dates proches) : ouvre le sélecteur natif et écrit jj/mm/aaaa. Le bouton
+        // ne s'imprime pas ; seule la date saisie figure sur le rapport.
+        function attachDateCalendar(el){
+            if(!el || el.dataset.calOn) return;
+            el.dataset.calOn = '1';
+            const pick = document.createElement('input');
+            pick.type = 'date';
+            pick.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px';
+            const btn = document.createElement('button');
+            btn.type = 'button'; btn.tabIndex = -1;
+            btn.className = 'no-print text-gray-400 hover:text-blue-600 ml-1 align-middle';
+            btn.title = 'Choisir dans le calendrier';
+            btn.innerHTML = '<i class="fas fa-calendar-days"></i>';
+            btn.addEventListener('click', () => {
+                const t = parseFlexDate(el.value);
+                if(t){ const d = new Date(t); pick.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+                try { pick.showPicker(); } catch(_) { pick.focus(); pick.click(); }
+            });
+            pick.addEventListener('change', () => {
+                if(pick.value){ const [y,m,d] = pick.value.split('-'); el.value = `${d}/${m}/${y}`; el.dispatchEvent(new Event('input', { bubbles: true })); }
+            });
+            el.insertAdjacentElement('afterend', btn);
+            btn.insertAdjacentElement('afterend', pick);
+        }
+        // Active la saisie de dates : masque jj/mm/aaaa partout ; calendrier en plus pour les dates proches.
+        function setupDateInputs(){
+            ['input-recrutement', 'input-last-visit'].forEach(id => attachDateMask(document.getElementById(id)));
+            ['input-date', 'footer-date-inspector', 'footer-date-teacher'].forEach(id => {
+                const el = document.getElementById(id); attachDateMask(el); attachDateCalendar(el);
+            });
         }
         const fVal = id => (document.getElementById(id)?.value || '').trim();
         window.resetHistoryFilters = function(){
