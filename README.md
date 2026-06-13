@@ -41,8 +41,9 @@ Elle fonctionne de trois façons :
 
 Site compagnon pour constituer une **base de données des enseignants** de la discipline :
 chaque enseignant ouvre le lien et remplit sa fiche — état civil (nom, naissance, téléphone,
-e-mail), conjoint et sa profession, établissement (lycée ou collège technique), commissariat
-régional d'éducation, date de recrutement, dernière note avec l'inspecteur et sa date,
+e-mail), conjoint et sa profession, établissement principal (lycée ou collège technique) **et un
+deuxième établissement optionnel** (complément d'horaire), commissariat régional d'éducation,
+date de recrutement, dernière note avec l'inspecteur et sa date,
 **emploi du temps** du lundi au samedi (8 h → 18 h, séances de 2 h — avec salle et précision :
 quinzaine semaine A/B, groupes G1/G2, séances d'une heure, créneau partagé entre deux classes),
 et en bas la **liste des classes enseignées, déduite automatiquement de l'emploi du temps**,
@@ -74,6 +75,12 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
 - **Site installable** (PWA) : sur téléphone, menu du navigateur → « Ajouter à l'écran d'accueil » ;
   sur PC, icône d'installation dans la barre d'adresse. L'icône « Enseignants » s'ouvre alors
   comme une application.
+- **Pont avec l'application Rapport d'Inspection** : en consultant une fiche, le bouton
+  **« Préparer un rapport »** ouvre `index.html` (l'application) pré-remplie avec l'identité de
+  l'enseignant — nom, grade, établissement, date de recrutement, commissariat, dernière visite,
+  année scolaire, et ses classes proposées en autocomplétion. Seule l'identité est copiée :
+  la grille d'évaluation, la description et la synthèse restent vierges (c'est un nouveau rapport),
+  et un rapport en cours n'est pas écrasé tant que rien n'a été saisi.
 
 ### Mise en ligne (GitHub Pages)
 

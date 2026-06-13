@@ -194,6 +194,7 @@
             <div><i class="fas fa-eye"></i> Fiche de <b id="admin-bar-name"></b></div>
             <div class="flex flex-wrap gap-2">
                 <button onclick="adminBack()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-arrow-left"></i> Retour à la liste</button>
+                <button onclick="prepareReport()" title="Ouvrir l'application Rapport d'Inspection, pré-remplie avec cette fiche" class="bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-file-pen"></i> Préparer un rapport</button>
                 <button onclick="window.print()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-print"></i> Imprimer</button>
                 <button onclick="doSave()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-floppy-disk"></i> Enregistrer les modifications</button>
                 <button id="admin-del-btn" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-trash"></i> Supprimer</button>
@@ -299,8 +300,22 @@
                         </select>
                     </label>
                     <label class="block sm:col-span-2">
-                        <span class="text-sm font-semibold">Établissement <span class="text-red-600">*</span></span>
+                        <span class="text-sm font-semibold">Établissement principal <span class="text-red-600">*</span></span>
                         <input id="f-etab" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. Lycée Ibn Khaldoun — Msaken">
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
+                    <label class="block">
+                        <span class="text-sm font-semibold">Type (2ᵉ étab.)</span>
+                        <select id="f-etab2-type" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+                            <option value="">—</option>
+                            <option>Lycée</option>
+                            <option>Collège technique</option>
+                        </select>
+                    </label>
+                    <label class="block sm:col-span-2">
+                        <span class="text-sm font-semibold">Deuxième établissement <span class="text-gray-400 font-normal">(complément d'horaire — si applicable)</span></span>
+                        <input id="f-etab2" type="text" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="— laisser vide si un seul établissement">
                     </label>
                 </div>
                 <label class="block">
@@ -833,6 +848,8 @@
                 conjointProfession: $('f-conjoint-prof').value.trim(),
                 etabType: $('f-etab-type').value,
                 etablissement: $('f-etab').value.trim(),
+                etab2Type: $('f-etab2-type').value,
+                etablissement2: $('f-etab2').value.trim(),
                 cre: $('f-cre').value.trim(),
                 grade: $('f-grade').value,
                 matricule: $('f-matricule').value.trim(),
@@ -869,6 +886,8 @@
             $('f-conjoint-prof').value = d.conjointProfession || '';
             $('f-etab-type').value = d.etabType || 'Lycée';
             $('f-etab').value = d.etablissement || '';
+            $('f-etab2-type').value = d.etab2Type || '';
+            $('f-etab2').value = d.etablissement2 || '';
             $('f-cre').value = d.cre || '';
             $('f-grade').value = d.grade || '';
             $('f-matricule').value = d.matricule || '';
@@ -1154,7 +1173,7 @@
             restoreTeacherForm();
         };
         function startAdminFeed(){
-            if(unsubAdmin || !db) return;
+            if(unsubAdmin || !db || !currentUser) return;
             // Migration douce : les suivis créés avant l'ajout d'ownerUid en sont dotés
             // (possible tant que les anciennes règles sont en place ; sans effet ensuite).
             getDocs(query(suiviCol(), where('insp', '==', myCode))).then(snap => {
@@ -1339,7 +1358,7 @@
             refreshCreOptions(mine);
             const needle = fold($('adm-search').value);
             let rows = mine.filter(r => !needle ||
-                fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle));
+                fold([r.nom, r.etablissement, r.etablissement2, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle));
             rows = applyFilters(rows);
             const mode = $('adm-sort').value;
             rows.sort((a,b) => {
@@ -1365,7 +1384,7 @@
                 <tr class="border-t hover:bg-indigo-50/40">
                     <td class="p-2.5"><button class="text-indigo-700 font-semibold hover:underline" onclick="adminView('${r.id}')">${escapeHtml(r.nom) || '—'}</button>${isNew(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">nouvelle</span>' : ''}${isIncomplete(r) ? ' <span class="px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-700" title="Emploi du temps ou effectifs manquants">incomplète</span>' : ''}${showSessions ? `<div class="text-[11px] text-emerald-700 mt-0.5"><i class="fas fa-clock"></i> ${escapeHtml(edtSessions(r, fJour, fSlot).join('  ·  '))}</div>` : ''}</td>
                     <td class="p-2.5">${escapeHtml(r.grade || '—')}</td>
-                    <td class="p-2.5">${escapeHtml(r.etablissement)}${r.etabType ? `<span class="text-gray-400 text-xs"> (${escapeHtml(r.etabType)})</span>` : ''}</td>
+                    <td class="p-2.5">${escapeHtml(r.etablissement)}${r.etabType ? `<span class="text-gray-400 text-xs"> (${escapeHtml(r.etabType)})</span>` : ''}${r.etablissement2 ? `<div class="text-[11px] text-gray-500" title="Deuxième établissement (complément d'horaire)"><i class="fas fa-plus"></i> ${escapeHtml(r.etablissement2)}</div>` : ''}</td>
                     <td class="p-2.5">${escapeHtml(r.cre)}</td>
                     <td class="p-2.5 whitespace-nowrap">${escapeHtml(r.telephone)}</td>
                     <td class="p-2.5 text-center">${noteOf(r) !== null ? noteOf(r).toLocaleString('fr-FR') : '—'}${r.dateNote ? `<div class="text-[10px] text-gray-400">${fmtDate(r.dateNote)}</div>` : ''}</td>
@@ -1562,6 +1581,26 @@
             }
             notify(`${ok} fiche(s) restaurée(s).`, "success", 7000);
         }
+        // ---------- PONT VERS L'APPLICATION « RAPPORT D'INSPECTION » ----------
+        // Ouvre index.html (même dossier) pré-remplie avec l'identité de l'enseignant ouvert.
+        window.prepareReport = function(){
+            const r = adminRows.find(x => x.id === viewingAdminId);
+            if(!r){ notify("Ouvrez d'abord une fiche d'enseignant.", "error"); return; }
+            const url = new URL('index.html', location.href);
+            const p = url.searchParams;
+            p.set('from', 'fiche');
+            if(r.nom) p.set('teacher', r.nom);
+            if(r.grade) p.set('grade', r.grade);
+            if(r.etablissement) p.set('etab', r.etablissement);
+            if(r.dateRecrutement) p.set('recrut', fmtDate(r.dateRecrutement));
+            if(r.dateNote) p.set('lastvisit', fmtDate(r.dateNote));   // dernière note = dernière visite
+            if(r.cre) p.set('region', r.cre);
+            if(r.anneeScolaire) p.set('year', r.anneeScolaire);
+            const classes = Object.keys(r.classes || {});
+            if(classes.length) p.set('classes', classes.join('|'));
+            window.open(url.toString(), '_blank');
+            notify("Application Rapport d'Inspection ouverte, pré-remplie pour " + (r.nom || "l'enseignant") + ".", "success", 6000);
+        };
         // Import d'une fiche « orpheline » (remplie sans code inspecteur) dans sa propre base.
         window.importFiche = async function(id){
             try { await updateDoc(ficheDoc(id), { insp: myCode }); notify("Fiche importée dans votre base.", "success"); }
@@ -1581,8 +1620,8 @@
             // Exporte ce qui est affiché : recherche ET filtres avancés appliqués.
             const needle = fold($('adm-search').value);
             const rows = applyFilters(myRows().filter(r => !needle ||
-                fold([r.nom, r.etablissement, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle)));
-            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","CRE","Grade","Matricule CNRPS","Situation","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
+                fold([r.nom, r.etablissement, r.etablissement2, r.cre, r.telephone, r.email, r.inspecteur].join(' ')).includes(needle)));
+            const cols = ["Nom et prénom","Date de naissance","Lieu de naissance","Téléphone","E-mail","État civil","Conjoint","Profession du conjoint","Type d'établissement","Établissement","2ᵉ établissement","CRE","Grade","Matricule CNRPS","Situation","Date de recrutement","Dernière note","Inspecteur","Date de la note"];
             for(const [,label] of NIVEAUX) cols.push(label + " — élèves");
             cols.push("Total élèves","Classes (élèves)","Emploi du temps","Année scolaire","Code","Mise à jour");
             const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
@@ -1594,7 +1633,8 @@
                     const cells = SLOTS.map(([sk, sl]) => (r.emploi || {})[`${dk}_${sk}`] ? `${sl} : ${cellTxt((r.emploi || {})[`${dk}_${sk}`])}` : null).filter(Boolean);
                     return cells.length ? `${dl} → ${cells.join(' | ')}` : null;
                 }).filter(Boolean).join('  //  ');
-                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, r.cre, r.grade, r.matricule, r.situationAdmin, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
+                const etab2 = r.etablissement2 ? (r.etablissement2 + (r.etab2Type ? ` (${r.etab2Type})` : '')) : '';
+                const line = [r.nom, fmtDate(r.dateNaissance), r.lieuNaissance, r.telephone, r.email, r.etatCivil, r.conjointNom, r.conjointProfession, r.etabType, r.etablissement, etab2, r.cre, r.grade, r.matricule, r.situationAdmin, fmtDate(r.dateRecrutement), r.derniereNote, r.inspecteur, fmtDate(r.dateNote)];
                 const sums = levelSums(r);
                 for(const [k] of NIVEAUX) line.push(sums[k]);
                 const classesTxt = Object.entries(r.classes || {}).map(([name, v]) => `${name}: ${v}`).join(' | ');
