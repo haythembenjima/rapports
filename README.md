@@ -1,10 +1,10 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.19/Rapport-Inspection.apk)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.20/Rapport-Inspection.apk)
 
 > **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
-> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.19/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.20/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
@@ -49,8 +49,14 @@ quinzaine semaine A/B, groupes G1/G2, séances d'une heure, créneau partagé en
 et en bas la **liste des classes enseignées, déduite automatiquement de l'emploi du temps**,
 avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8ème et 9ème).
 
-- À l'enregistrement, l'enseignant reçoit un **code personnel** (6 caractères) pour retrouver
-  et modifier sa fiche depuis n'importe quel appareil (bouton « J'ai déjà une fiche »).
+- **E-mail obligatoire** : à l'enregistrement, l'enseignant reçoit un **code personnel**
+  (6 caractères) ; un bouton « **Recevoir le code par e-mail** » ouvre la messagerie avec le code
+  pré-rempli, pour le conserver et retrouver/mettre à jour la fiche depuis n'importe quel appareil
+  (bouton « J'ai déjà une fiche »).
+- **Saisie des dates en jj/mm/aaaa partout** : les dates lointaines (naissance, recrutement,
+  dernière visite) se tapent en chiffres avec passage automatique jour → mois → année (les « / »
+  s'insèrent seuls, sans calendrier) ; les dates proches (visite, dates en bas du rapport) ont
+  aussi un **bouton calendrier**.
 - Hors ligne, la fiche est gardée sur l'appareil puis **envoyée automatiquement** à la reconnexion ;
   un brouillon est sauvegardé en continu pendant la saisie.
 - **Espace inspecteur** : connexion avec un **compte e-mail / mot de passe** (le même que dans

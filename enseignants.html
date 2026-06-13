@@ -215,6 +215,7 @@
             Code personnel : <b id="saved-code" class="tracking-widest"></b>
             <span id="saved-date" class="text-green-700"></span>
             — gardez ce code pour modifier votre fiche depuis un autre appareil.
+            <button onclick="emailMyCode()" class="ml-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-xs"><i class="fas fa-envelope"></i> Recevoir le code par e-mail</button>
         </div>
 
         <!-- Barre admin (visible quand l'inspecteur consulte une fiche) -->
@@ -293,7 +294,7 @@
                 <div class="grid grid-cols-2 gap-3">
                     <label class="block">
                         <span class="text-sm font-semibold">Date de naissance</span>
-                        <input id="f-date-naissance" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
+                        <input id="f-date-naissance" type="text" inputmode="numeric" maxlength="10" placeholder="jj/mm/aaaa" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
                     </label>
                     <label class="block">
                         <span class="text-sm font-semibold">Lieu de naissance</span>
@@ -305,8 +306,9 @@
                     <input id="f-tel" type="tel" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. 98 123 456">
                 </label>
                 <label class="block">
-                    <span class="text-sm font-semibold">Adresse e-mail</span>
+                    <span class="text-sm font-semibold">Adresse e-mail <span class="text-red-600">*</span></span>
                     <input id="f-email" type="email" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5" placeholder="ex. prenom.nom@gmail.com">
+                    <span class="no-print text-xs text-gray-500">Votre code personnel pourra vous être envoyé à cette adresse.</span>
                 </label>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:col-span-2">
                     <label class="block">
@@ -381,7 +383,7 @@
                     </label>
                     <label class="block">
                         <span class="text-sm font-semibold">Date de recrutement</span>
-                        <input id="f-date-recrutement" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
+                        <input id="f-date-recrutement" type="text" inputmode="numeric" maxlength="10" placeholder="jj/mm/aaaa" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
                     </label>
                     <label class="block">
                         <span class="text-sm font-semibold">Code inspecteur</span>
@@ -415,7 +417,7 @@
                     </label>
                     <label class="block">
                         <span class="text-sm font-semibold">Date de la note</span>
-                        <input id="f-date-note" type="date" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
+                        <input id="f-date-note" type="text" inputmode="numeric" maxlength="10" placeholder="jj/mm/aaaa" class="mt-0.5 w-full border border-gray-300 rounded px-2 py-1.5">
                     </label>
                 </div>
             </div>
@@ -744,6 +746,26 @@
             const [y,m,d] = String(iso).split('-');
             return (d && m && y) ? `${d}/${m}/${y}` : String(iso);
         }
+        // Conversions de dates : affichage jj/mm/aaaa, comparaisons en ISO (aaaa-mm-jj).
+        function toDMY(v){ v = String(v || '').trim(); const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? `${m[3]}/${m[2]}/${m[1]}` : v; }
+        function toISO(v){
+            v = String(v || '').trim();
+            const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+            return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : v;
+        }
+        // Saisie jj/mm/aaaa : 8 chiffres tapés, « / » insérés automatiquement (jour → mois → année).
+        function attachDateMask(el){
+            if(!el || el.dataset.maskOn) return;
+            el.dataset.maskOn = '1';
+            el.addEventListener('input', () => {
+                const dgt = el.value.replace(/\D/g, '').slice(0, 8);
+                let out = dgt.slice(0, 2);
+                if(dgt.length >= 3) out += '/' + dgt.slice(2, 4);
+                if(dgt.length >= 5) out += '/' + dgt.slice(4, 8);
+                if(el.value !== out) el.value = out;
+            });
+        }
         function anneeScolaire(){
             const now = new Date();
             const y = now.getFullYear();
@@ -827,6 +849,8 @@
             $('prec-list').innerHTML = PRECISIONS.map(v => `<option value="${v}">`).join('');
 
             $('cre-list').innerHTML = CRE_LIST.map(v => `<option value="${v}">`).join('');
+            // Dates lointaines : saisie masquée jj/mm/aaaa (pas de calendrier).
+            ['f-date-naissance', 'f-date-recrutement', 'f-date-note'].forEach(id => attachDateMask($(id)));
             $('f-annee').innerText = anneeScolaire();
             $('f-today').innerText = new Date().toLocaleDateString('fr-FR');
 
@@ -922,7 +946,7 @@
         }
         function fillForm(d){
             $('f-nom').value = d.nom || '';
-            $('f-date-naissance').value = d.dateNaissance || '';
+            $('f-date-naissance').value = toDMY(d.dateNaissance || '');
             $('f-lieu-naissance').value = d.lieuNaissance || '';
             $('f-tel').value = d.telephone || '';
             $('f-email').value = d.email || '';
@@ -937,10 +961,10 @@
             $('f-grade').value = d.grade || '';
             $('f-matricule').value = d.matricule || '';
             $('f-situation').value = d.situationAdmin || '';
-            $('f-date-recrutement').value = d.dateRecrutement || '';
+            $('f-date-recrutement').value = toDMY(d.dateRecrutement || '');
             $('f-note').value = d.derniereNote ?? '';
             $('f-inspecteur').value = d.inspecteur || '';
-            $('f-date-note').value = d.dateNote || '';
+            $('f-date-note').value = toDMY(d.dateNote || '');
             $('f-insp').value = d.insp || (viewingAdminId ? '' : (localStorage.getItem(INSP_KEY) || ''));
             for(const [dayKey] of DAYS) for(const [slotKey] of SLOTS){
                 // Anciennes fiches : la case était une simple chaîne (classe seule).
@@ -973,8 +997,12 @@
             mark('f-tel', !telOk);            if(!telOk) errors.push("un téléphone valide (8 chiffres min)");
             mark('f-etab', !d.etablissement); if(!d.etablissement) errors.push("l'établissement");
             mark('f-cre', !d.cre);            if(!d.cre) errors.push("le commissariat régional");
-            const emailBad = d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email);
-            mark('f-email', emailBad);        if(emailBad) errors.push("une adresse e-mail valide");
+            // E-mail obligatoire pour l'enseignant (sert à recevoir le code) ; l'inspecteur peut
+            // corriger une fiche ancienne sans e-mail.
+            const emailRequired = !viewingAdminId;
+            const emailFormatBad = d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email);
+            const emailBad = (emailRequired && !d.email) || emailFormatBad;
+            mark('f-email', emailBad);        if(emailRequired && !d.email) errors.push("votre adresse e-mail"); else if(emailFormatBad) errors.push("une adresse e-mail valide");
             const noteBad = d.derniereNote !== '' && (isNaN(parseFloat(d.derniereNote)) || parseFloat(d.derniereNote) < 0 || parseFloat(d.derniereNote) > 20);
             mark('f-note', noteBad);          if(noteBad) errors.push("une note entre 0 et 20");
             return errors;
@@ -1063,6 +1091,19 @@
             $('saved-code').innerText = code || '';
             $('saved-date').innerText = updatedAt ? ` (dernière mise à jour : ${updatedAt.toLocaleDateString('fr-FR')})` : '';
         }
+        // Ouvre l'application e-mail avec un message pré-rempli contenant le code, adressé à
+        // l'e-mail de la fiche (l'enseignant se l'envoie pour le conserver).
+        window.emailMyCode = function(){
+            const email = ($('f-email').value || '').trim();
+            const code = $('saved-code').innerText.trim();
+            if(!email){ notify("Renseignez d'abord votre adresse e-mail dans la fiche.", "error"); $('f-email').classList.add('field-error'); return; }
+            if(!code){ notify("Enregistrez d'abord votre fiche.", "error"); return; }
+            const subject = encodeURIComponent("Votre code de fiche enseignant — Inspection Gestion");
+            const body = encodeURIComponent(
+                "Bonjour,\n\nVoici votre code personnel pour consulter et mettre à jour votre fiche enseignant :\n\n        " + code +
+                "\n\nConservez ce code : il permet de retrouver votre fiche depuis n'importe quel appareil (bouton « J'ai déjà une fiche »), lorsque l'inspection ouvre la mise à jour.\n\nInspection pédagogique — Gestion");
+            location.href = "mailto:" + email + "?subject=" + subject + "&body=" + body;
+        };
 
         // ---------- RETROUVER SA FICHE PAR CODE ----------
         window.findByCode = async function(){
@@ -1406,7 +1447,7 @@
                 if(!isNaN(nmin) && (note === null || note < nmin)) return false;
                 if(!isNaN(nmax) && (note === null || note > nmax)) return false;
                 // « Dernière note avant le… » : garde aussi les jamais notés (à programmer en priorité).
-                if(visite && r.dateNote && r.dateNote >= visite) return false;
+                if(visite && r.dateNote && toISO(r.dateNote) >= visite) return false;
                 if((jour || slot) && !edtSessions(r, jour, slot).length) return false;
                 if(statut && (((suiviMap[r.id] || {}).statut) || 'aucun') !== statut) return false;
                 if(etat === 'incomplete' && !isIncomplete(r)) return false;
