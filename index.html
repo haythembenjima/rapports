@@ -164,6 +164,9 @@
             <button id="tab-stats" onclick="window.switchTab('stats')" class="px-6 py-2 rounded-t-lg font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 shadow transition font-sans">
                 <i class="fas fa-chart-line"></i> Historique
             </button>
+            <a href="enseignants.html" title="Base de données des enseignants (fiches, emploi du temps, espace inspecteur)" class="px-4 py-2 rounded-t-lg font-bold bg-indigo-100 text-indigo-800 hover:bg-indigo-200 shadow transition font-sans flex items-center">
+                <i class="fas fa-address-card"></i>&nbsp;Base des enseignants
+            </a>
         </div>
         <div class="flex gap-2 items-center font-sans">
             <div id="draft-indicator" class="text-xs font-bold bg-white px-3 py-1 rounded shadow text-gray-400 hidden">
@@ -185,7 +188,7 @@
             <button id="admin-login-btn" onclick="window.toggleAdmin()" class="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded shadow text-xs uppercase font-bold">
                 <i class="fas fa-lock"></i> Admin
             </button>
-            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.16.0</span>
+            <span id="app-version" class="text-[10px] font-bold text-gray-400 px-1" title="Version installée">v1.17.0</span>
         </div>
     </div>
 
@@ -560,8 +563,8 @@
         const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
         // ---------- MISE À JOUR AUTOMATIQUE (Windows + Android) ----------
-        const APP_VERSION = '1.16.0';          // version web/Windows (tags v*)
-        const ANDROID_VERSION = '1.7.17';      // version APK Android (tags android-v*)
+        const APP_VERSION = '1.17.0';          // version web/Windows (tags v*)
+        const ANDROID_VERSION = '1.7.18';      // version APK Android (tags android-v*)
         const REPO_RELEASES_API = 'https://api.github.com/repos/haythembenjima/rapports/releases/latest';
         const REPO_RELEASES_LIST = 'https://api.github.com/repos/haythembenjima/rapports/releases?per_page=30';
         function isNewerVersion(remote, local){

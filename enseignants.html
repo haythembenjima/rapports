@@ -146,6 +146,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                <a href="index.html" title="Revenir à l'application Rapport d'Inspection" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-file-lines"></i> Rapports d'inspection</a>
                 <button id="btn-myfiche" onclick="openAdmin()" class="hidden bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-list"></i> Liste des fiches</button>
                 <button onclick="openAccount()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-user"></i> <span id="btn-account-label">Compte</span></button>
                 <button onclick="openAdmin()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-user-shield"></i> Espace inspecteur</button>
@@ -692,6 +693,8 @@
 
         // ---------- PETITS UTILITAIRES ----------
         const $ = (id) => document.getElementById(id);
+        // Vraie application installée (Electron .exe ou Capacitor .apk) plutôt que navigateur web.
+        function isPackagedApp(){ return !!((window.__cap && window.__cap.isNative) || /Electron/i.test(navigator.userAgent)); }
         function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
         function fold(s){ return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
         function fmtDate(iso){
@@ -1598,7 +1601,10 @@
             if(r.anneeScolaire) p.set('year', r.anneeScolaire);
             const classes = Object.keys(r.classes || {});
             if(classes.length) p.set('classes', classes.join('|'));
-            window.open(url.toString(), '_blank');
+            // Dans l'app installée (Electron/Capacitor), ouvrir une nouvelle fenêtre vers un fichier
+            // local échoue : on navigue dans la même vue. Sur le web, on garde la base dans un onglet.
+            if(isPackagedApp()) location.href = url.toString();
+            else window.open(url.toString(), '_blank');
             notify("Application Rapport d'Inspection ouverte, pré-remplie pour " + (r.nom || "l'enseignant") + ".", "success", 6000);
         };
         // Import d'une fiche « orpheline » (remplie sans code inspecteur) dans sa propre base.
@@ -1700,7 +1706,8 @@
             if(f) restoreBackup(f);
         });
         // Site installable (PWA) : le service worker ne gère QUE les fichiers du site enseignants.
-        if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+        // Inutile (et indésirable) dans l'app installée Electron/Capacitor : on ne l'enregistre pas.
+        if('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !isPackagedApp()){
             navigator.serviceWorker.register('enseignants-sw.js').catch(() => {});
         }
         // Banc d'essai local (page ouverte avec #test) : espace inspecteur alimenté par des données

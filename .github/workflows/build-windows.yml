@@ -7,6 +7,10 @@ on:
     branches: [ main ]
     paths:
       - 'index.html'
+      - 'enseignants.html'
+      - 'enseignants.webmanifest'
+      - 'enseignants-sw.js'
+      - 'icons/**'
       - 'electron/**'
       - 'package.json'
       - '.github/workflows/build-windows.yml'
