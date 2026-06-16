@@ -169,6 +169,27 @@
         </div>
     </div>
 
+    <!-- Archivage par année scolaire -->
+    <div id="archive-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 max-h-[85vh] flex flex-col">
+            <h3 class="font-bold text-lg mb-1"><i class="fas fa-box-archive text-amber-700"></i> Archives par année scolaire</h3>
+            <p class="text-sm text-gray-600 mb-3">« Archiver » fige une copie de vos fiches actuelles pour l'année choisie. La base reste inchangée (les enseignants peuvent la mettre à jour pour la nouvelle année) ; l'archive, elle, ne bouge plus.</p>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex items-end gap-2 flex-wrap">
+                <label class="block text-sm">
+                    <span class="font-semibold">Année scolaire</span>
+                    <input id="archive-year" type="text" class="mt-1 w-28 border border-gray-300 rounded-lg px-2 py-1.5" placeholder="2025/2026">
+                </label>
+                <button onclick="archiveCurrentYear()" class="bg-amber-700 hover:bg-amber-800 text-white px-3 py-2 rounded-lg text-sm"><i class="fas fa-box-archive"></i> Archiver maintenant</button>
+            </div>
+            <div class="text-sm font-semibold text-gray-700 mb-1">Archives existantes</div>
+            <div id="archive-list" class="overflow-y-auto grow text-sm"></div>
+            <p id="archive-status" class="text-xs text-gray-500 mt-2"></p>
+            <div class="flex justify-end mt-3">
+                <button onclick="closeArchives()" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Doublons : repérer et fusionner les fiches en double -->
     <div id="dedup-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4 ui-sans">
         <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[85vh] flex flex-col">
@@ -671,6 +692,7 @@
                 <button id="mode-etabs" onclick="setViewMode('etabs')" class="px-3 py-2 bg-white text-gray-700 hover:bg-gray-50"><i class="fas fa-school"></i> Établissements</button>
             </div>
             <button onclick="openDedup()" title="Repérer et fusionner les fiches en double" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-clone"></i> Doublons</button>
+            <button onclick="openArchives()" title="Archiver l'année scolaire et consulter les archives" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-box-archive"></i> Archives</button>
             <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-csv"></i> Export CSV</button>
             <button onclick="openExportDocs()" title="Exporter les fiches affichées (PDF ou Word), une par page" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-export"></i> Fiches PDF/Word</button>
             <button onclick="openImport()" title="Créer des fiches en lot depuis un fichier CSV" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-sm"><i class="fas fa-file-import"></i> Importer (CSV)</button>
@@ -1627,6 +1649,7 @@
                 adminRows = snap.docs.map(s => ({ id: s.id, ...s.data() }));
                 renderAdmin();
                 if(viewingAdminId){ const rr = adminRows.find(x => x.id === viewingAdminId); if(rr) renderAccessPanel(rr); }
+                if(!$('archive-modal').classList.contains('hidden')) renderArchives();
             }, e => {
                 unsubAdmin = null;   // l'écouteur est arrêté par l'erreur : autoriser une nouvelle tentative
                 $('adm-error').innerHTML = '<i class="fas fa-triangle-exclamation"></i> <b>Lecture refusée par le serveur.</b> ' +
@@ -1828,8 +1851,10 @@
             sel.value = cres.includes(cur) ? cur : '';
         }
         // Fiches de MA base (code inspecteur = le mien) et fiches « orphelines » (sans code).
-        function myRows(){ return adminRows.filter(r => (r.insp || '') === myCode); }
+        // Fiches « vivantes » de l'inspecteur (les archives figées sont exclues des vues courantes).
+        function myRows(){ return adminRows.filter(r => (r.insp || '') === myCode && !r.archived); }
         function legacyRows(){ return adminRows.filter(r => !r.insp); }
+        function archivedRows(){ return adminRows.filter(r => (r.insp || '') === myCode && r.archived); }
         function renderAdmin(){
             if(!myCode) return;
             const mine = myRows();
@@ -2315,6 +2340,83 @@
             a.click(); URL.revokeObjectURL(a.href);
             closeExportDocs();
             notify(`${rows.length} fiche(s) exportée(s) en Word (.doc).`, "success", 6000);
+        };
+
+        // ---------- ARCHIVAGE PAR ANNÉE SCOLAIRE ----------
+        // Une archive = copie figée des fiches vivantes, marquée { archived:true, archiveYear }.
+        // Elle reste dans la même collection mais est exclue de toutes les vues courantes (myRows).
+        window.openArchives = function(){
+            $('archive-year').value = anneeScolaire();
+            $('archive-status').innerText = '';
+            renderArchives();
+            $('archive-modal').classList.remove('hidden');
+        };
+        window.closeArchives = function(){ $('archive-modal').classList.add('hidden'); };
+        function archiveYearsList(){
+            const m = {};
+            for(const r of archivedRows()){ const y = r.archiveYear || '—'; m[y] = (m[y] || 0) + 1; }
+            return Object.entries(m).sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+        }
+        function archiveRowsForYear(y){ return archivedRows().filter(r => (r.archiveYear || '') === y); }
+        function renderArchives(){
+            const years = archiveYearsList();
+            $('archive-list').innerHTML = years.length ? years.map(([y, n]) => `
+                <div class="flex items-center justify-between gap-2 border-t py-2">
+                    <div><b>${escapeHtml(y)}</b> <span class="text-gray-500 text-xs">${n} fiche(s)</span></div>
+                    <div class="whitespace-nowrap">
+                        <button onclick="exportArchivePDF('${escapeHtml(y).replace(/'/g, "\\'")}')" class="text-indigo-600 hover:underline text-xs mr-2"><i class="fas fa-file-pdf"></i> PDF</button>
+                        <button onclick="exportArchiveWord('${escapeHtml(y).replace(/'/g, "\\'")}')" class="text-sky-700 hover:underline text-xs mr-2"><i class="fas fa-file-word"></i> Word</button>
+                        <button onclick="deleteArchive('${escapeHtml(y).replace(/'/g, "\\'")}')" class="text-red-600 hover:underline text-xs"><i class="fas fa-trash"></i> Supprimer</button>
+                    </div>
+                </div>`).join('') : '<p class="text-gray-400 italic">Aucune archive pour le moment.</p>';
+        }
+        window.archiveCurrentYear = async function(){
+            if(!db || !myCode) return;
+            const year = ($('archive-year').value || '').trim() || anneeScolaire();
+            const live = myRows();
+            if(!live.length){ notify("Aucune fiche à archiver.", "info"); return; }
+            const existing = archiveRowsForYear(year);
+            if(existing.length){ if(!await appConfirm(`Une archive ${year} existe déjà (${existing.length} fiche(s)). La remplacer ?`)) return; }
+            else if(!await appConfirm(`Archiver ${live.length} fiche(s) pour l'année ${year} ? (copie figée — la base reste modifiable pour la nouvelle année)`)) return;
+            $('archive-status').innerText = "Archivage en cours…";
+            for(const r of existing){ try { await deleteDoc(ficheDoc(r.id)); } catch(_) {} }
+            let n = 0;
+            for(const r of live){
+                const copy = { ...r };
+                delete copy.id;
+                copy.archived = true; copy.archiveYear = year; copy.archivedFrom = r.id; copy.archivedCode = r.code || '';
+                delete copy.code;   // une archive n'a pas de code actif (n'interfère pas avec « J'ai déjà une fiche »)
+                if(suiviMap[r.id]) copy.suiviSnapshot = { ...suiviMap[r.id] };
+                copy.archivedAt = serverTimestamp();
+                try { await addDoc(fichesCol(), copy); n++; } catch(_) {}
+            }
+            $('archive-status').innerText = `${n} fiche(s) archivée(s) pour ${year}.`;
+            notify(`Année ${year} archivée (${n} fiche(s)).`, "success", 6000);
+            renderArchives();
+        };
+        window.exportArchiveWord = function(y){
+            const rows = archiveRowsForYear(y); if(!rows.length) return;
+            const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>${DOCS_CSS} div.fiche-page{page-break-after:always}</style></head><body>${buildFichesHTML(rows)}</body></html>`;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob(['\ufeff' + html], { type: 'application/msword' }));
+            a.download = `archive-enseignants-${String(y).replace(/\//g, '-')}.doc`;
+            a.click(); URL.revokeObjectURL(a.href);
+            notify(`Archive ${y} exportée (Word).`, "success");
+        };
+        window.exportArchivePDF = function(y){
+            const rows = archiveRowsForYear(y); if(!rows.length) return;
+            const w = window.open('', '_blank');
+            if(!w){ notify("Autorisez les fenêtres pop-up, ou utilisez l'export Word.", "warn", 6000); return; }
+            w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Archive ${escapeHtml(String(y))}</title><style>${DOCS_CSS}</style></head><body>${buildFichesHTML(rows)}</body></html>`);
+            w.document.close(); w.focus(); setTimeout(() => { try { w.print(); } catch(_) {} }, 500);
+        };
+        window.deleteArchive = async function(y){
+            const rows = archiveRowsForYear(y); if(!rows.length) return;
+            if(!await appConfirm(`Supprimer définitivement l'archive ${y} (${rows.length} fiche(s)) ? Irréversible.`)) return;
+            let n = 0;
+            for(const r of rows){ try { await deleteDoc(ficheDoc(r.id)); n++; } catch(_) {} }
+            notify(`Archive ${y} supprimée (${n} fiche(s)).`, "info", 5000);
+            renderArchives();
         };
 
         // ---------- EXPORT CSV (liste affichée : filtre et tri appliqués) ----------

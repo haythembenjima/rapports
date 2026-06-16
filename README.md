@@ -1,10 +1,10 @@
 # Rapport d'Inspection — Gestion
 
 [![Télécharger pour Windows](https://img.shields.io/badge/Télécharger-Windows%20(.exe)-1d4ed8?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe)
-[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.26/Rapport-Inspection.apk)
+[![Télécharger pour Android](https://img.shields.io/badge/Télécharger-Android%20(.apk)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.27/Rapport-Inspection.apk)
 
 > **⬇️ Windows :** [**Installateur (.exe)**](https://github.com/haythembenjima/rapports/releases/latest/download/Rapport-Inspection-Setup.exe) — lien toujours à jour (dernière version).
-> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.26/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
+> **📱 Android :** [**Application (.apk)**](https://github.com/haythembenjima/rapports/releases/download/android-v1.7.27/Rapport-Inspection.apk) — installez puis autorisez les « sources inconnues ».
 > &nbsp;·&nbsp; [Toutes les versions](https://github.com/haythembenjima/rapports/releases)
 
 Application de rédaction des rapports d'évaluation d'inspection pédagogique
@@ -111,6 +111,10 @@ avec le nombre d'élèves par classe (niveaux : 2ème ES, 3ème EG, 4ème EG, 8�
 - **Export groupé des fiches** (bouton *Fiches PDF/Word*) : génère **toutes les fiches affichées**
   (liste filtrée), une par page — en **PDF** (via l'aperçu d'impression → « Enregistrer en PDF ») ou
   en **Word (.doc)** modifiable, au format officiel de la fiche.
+- **Archivage par année scolaire** (bouton *Archives*) : fige une **copie** de la base pour une année
+  donnée (la base reste modifiable pour l'année suivante). Les archives sont **exclues des vues
+  courantes** et **consultables/exportables** (PDF ou Word) ou supprimables par année. Idéal pour
+  garder une trace figée à chaque fin d'année.
 - **Envoi automatique du code par e-mail (EmailJS, optionnel)** : espace inspecteur →
   *Réglages e-mail*. Créez un compte gratuit sur [emailjs.com](https://www.emailjs.com), un *service*
   (connectez votre Gmail) et un *template* contenant les variables `{{to_email}}`, `{{code}}` et
