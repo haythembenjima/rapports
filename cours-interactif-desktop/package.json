@@ -1,7 +1,7 @@
 {
   "name": "cours-interactif-desktop",
   "productName": "Cours Interactif",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Application de bureau Windows pour la création de cours interactifs (basée sur OpenMAIC).",
   "author": "haythembenjima",

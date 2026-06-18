@@ -12,10 +12,37 @@ const { spawn } = require('child_process');
 const http = require('http');
 const net = require('net');
 const path = require('path');
+const fs = require('fs');
 
 let serverProc = null;
 let serverPort = 0;
 let mainWindow = null;
+let serverExited = null; // { code, signal } si le serveur s'arrête avant d'être prêt
+let serverSpawnError = null;
+
+// --- Journalisation -----------------------------------------------------------
+const recentLog = [];
+let logStream = null;
+
+function logPath() {
+  try {
+    return path.join(app.getPath('userData'), 'server.log');
+  } catch {
+    return path.join(require('os').tmpdir(), 'cours-interactif-server.log');
+  }
+}
+
+function log(line) {
+  const s = `${new Date().toISOString()} ${line}`;
+  recentLog.push(s);
+  if (recentLog.length > 120) recentLog.shift();
+  try {
+    if (!logStream) logStream = fs.createWriteStream(logPath(), { flags: 'w' });
+    logStream.write(s + '\n');
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Emplacement du serveur Next standalone (packagé vs développement). */
 function standaloneDir() {
@@ -40,6 +67,22 @@ function getFreePort() {
 function startServer(port) {
   const dir = standaloneDir();
   const serverJs = path.join(dir, 'server.js');
+
+  log(`[launcher] version=${app.getVersion()} platform=${process.platform} arch=${process.arch}`);
+  log(`[launcher] electron=${process.versions.electron} node=${process.versions.node}`);
+  log(`[launcher] execPath=${process.execPath}`);
+  log(`[launcher] standaloneDir=${dir}`);
+  log(`[launcher] server.js exists=${fs.existsSync(serverJs)}`);
+  log(`[launcher] node_modules exists=${fs.existsSync(path.join(dir, 'node_modules'))}`);
+  log(`[launcher] .next exists=${fs.existsSync(path.join(dir, '.next'))}`);
+  log(`[launcher] PORT=${port}`);
+
+  if (!fs.existsSync(serverJs)) {
+    serverSpawnError = new Error(`Fichier serveur introuvable : ${serverJs}`);
+    log(`[launcher] ERREUR: ${serverSpawnError.message}`);
+    return;
+  }
+
   serverProc = spawn(process.execPath, [serverJs], {
     cwd: dir,
     env: {
@@ -48,22 +91,35 @@ function startServer(port) {
       NODE_ENV: 'production',
       PORT: String(port),
       HOSTNAME: '127.0.0.1',
+      NEXT_TELEMETRY_DISABLED: '1',
     },
-    stdio: 'ignore',
     windowsHide: true,
   });
-  serverProc.on('exit', () => {
+
+  if (serverProc.stdout) serverProc.stdout.on('data', (d) => log('[server] ' + d.toString().trimEnd()));
+  if (serverProc.stderr) serverProc.stderr.on('data', (d) => log('[server:err] ' + d.toString().trimEnd()));
+  serverProc.on('error', (err) => {
+    serverSpawnError = err;
+    log('[launcher] erreur de lancement : ' + err.message);
+  });
+  serverProc.on('exit', (code, signal) => {
+    serverExited = { code, signal };
+    log(`[server] processus terminé (code=${code} signal=${signal})`);
     serverProc = null;
   });
 }
 
-/** Attend que le serveur réponde sur le port donné. */
-function waitForServer(port, timeoutMs = 90000) {
+/** Attend que le serveur réponde, ou échoue tôt s'il plante. */
+function waitForServer(port, timeoutMs = 120000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
+    const fail = (msg) => reject(new Error(msg));
     const attempt = () => {
+      if (serverSpawnError) return fail('Échec du lancement du serveur : ' + serverSpawnError.message);
+      if (serverExited) return fail(`Le serveur s'est arrêté au démarrage (code=${serverExited.code}).`);
       const req = http.get({ host: '127.0.0.1', port, path: '/', timeout: 2500 }, (res) => {
         res.resume();
+        log(`[launcher] serveur prêt (HTTP ${res.statusCode}) en ${Date.now() - start} ms`);
         resolve();
       });
       req.on('error', retry);
@@ -73,11 +129,11 @@ function waitForServer(port, timeoutMs = 90000) {
       });
     };
     const retry = () => {
+      if (serverExited) return fail(`Le serveur s'est arrêté au démarrage (code=${serverExited.code}).`);
       if (Date.now() - start > timeoutMs) {
-        reject(new Error("Le moteur de l'application n'a pas démarré à temps."));
-      } else {
-        setTimeout(attempt, 400);
+        return fail("Le moteur de l'application n'a pas démarré à temps.");
       }
+      setTimeout(attempt, 400);
     };
     attempt();
   });
@@ -158,10 +214,16 @@ app.whenReady().then(async () => {
       await mainWindow.loadURL(`http://127.0.0.1:${serverPort}/`);
     }
   } catch (err) {
+    const tail = recentLog.slice(-22).join('\n');
+    log('[launcher] ÉCHEC : ' + (err && err.message ? err.message : String(err)));
     dialog.showErrorBox(
       'Cours Interactif',
       "Impossible de démarrer le moteur de l'application.\n\n" +
-        (err && err.message ? err.message : String(err)),
+        (err && err.message ? err.message : String(err)) +
+        '\n\nJournal complet :\n' +
+        logPath() +
+        '\n\n--- Détails ---\n' +
+        tail,
     );
     app.quit();
   }
