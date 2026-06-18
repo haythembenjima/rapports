@@ -94,6 +94,42 @@ service cloud.firestore {
 > lecture, il faudrait restreindre `enseignants/{fiche}` à l'UID du compte de l'inspecteur (mais
 > la récupération de fiche par code personnel ne fonctionnerait plus entre appareils).
 
+## Cours interactif — création de cours assistée par IA ([`cours-interactif/`](./cours-interactif/))
+
+Application compagnon pour **créer des cours interactifs** à partir d'un simple sujet :
+l'IA génère un cours complet (diapositives, **quiz** avec correction immédiate,
+**éléments interactifs**, **export** `.pptx`/`.html` et lecture audio). Elle est basée
+sur le projet open source **[OpenMAIC](https://github.com/THU-MAIC/OpenMAIC)** (licence
+MIT), **préconfigurée pour Google Gemini** et avec une **interface en français**.
+
+> ⚠️ Contrairement à `index.html` et `enseignants.html` (pages autonomes), c'est une
+> **application serveur Next.js** : elle nécessite Node.js, une clé API et un hébergement
+> (Vercel / Docker / serveur Node). Elle **ne se publie pas** sur GitHub Pages.
+
+### 🖥️ Application de bureau Windows (.exe)
+
+[![Télécharger Cours Interactif pour Windows](https://img.shields.io/badge/Télécharger-Cours%20Interactif%20(.exe)-7c3aed?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/cours-interactif-desktop-v0.1.0/Cours-Interactif-Setup.exe)
+
+Une version **bureau** (Electron) embarque le serveur et s'installe comme un logiciel Windows
+classique. Au premier lancement, ouvrez **Paramètres** et saisissez votre clé **Google Gemini**.
+Le `.exe` est construit automatiquement par GitHub Actions
+([workflow](./.github/workflows/build-cours-windows.yml)) et publié dans les
+[*Releases*](https://github.com/haythembenjima/rapports/releases) — détails dans
+[`cours-interactif-desktop/`](./cours-interactif-desktop/).
+
+### Version web (développement / serveur)
+
+Démarrage rapide :
+
+```bash
+cd cours-interactif
+cp .env.example .env.local      # puis renseignez GOOGLE_API_KEY=...
+pnpm install
+pnpm dev                        # → http://localhost:3000
+```
+
+Guide complet (configuration, déploiement Vercel/Docker) : **[`cours-interactif/LISEZ-MOI.md`](./cours-interactif/LISEZ-MOI.md)**.
+
 ## Construire l'application Windows (.exe)
 
 ### Option A — Automatique (GitHub Actions, recommandé)
