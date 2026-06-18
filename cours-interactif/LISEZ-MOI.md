@@ -113,8 +113,12 @@ Pensez à passer vos variables d'environnement au conteneur (fichier `.env` /
 
 ## Langue de l'interface
 
-- L'interface est **en français par défaut** (ajout de la locale `fr-FR`).
-- Repli automatique vers l'anglais pour toute chaîne non encore traduite.
+- L'application ne propose que **deux langues** : **Français** (par défaut) et
+  **العربية / arabe**. Le sélecteur en haut permet de basculer entre les deux ;
+  l'arabe s'affiche de droite à gauche (RTL).
+- La langue du navigateur est détectée automatiquement (un navigateur arabe ouvre
+  l'app en arabe) ; toute autre langue retombe sur le **français**.
+- Repli automatique vers le **français** pour toute chaîne non encore traduite.
 - La langue du **contenu pédagogique généré** est indépendante : elle est déduite du
   sujet/des supports fournis.
 

@@ -9,8 +9,8 @@ i18n
   .use(resourcesToBackend((language: string) => import(`./locales/${language}.json`)))
   .init({
     lng: defaultLocale,
-    // Fall back to English for any key not yet translated in the active locale.
-    fallbackLng: 'en-US',
+    // Repli vers le français pour toute clé non traduite dans la locale active.
+    fallbackLng: 'fr-FR',
     supportedLngs: supportedLocales.map((l) => l.code),
     interpolation: {
       escapeValue: false,
