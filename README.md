@@ -94,6 +94,29 @@ service cloud.firestore {
 > lecture, il faudrait restreindre `enseignants/{fiche}` à l'UID du compte de l'inspecteur (mais
 > la récupération de fiche par code personnel ne fonctionnerait plus entre appareils).
 
+## Cours interactif — création de cours assistée par IA ([`cours-interactif/`](./cours-interactif/))
+
+Application compagnon pour **créer des cours interactifs** à partir d'un simple sujet :
+l'IA génère un cours complet (diapositives, **quiz** avec correction immédiate,
+**éléments interactifs**, **export** `.pptx`/`.html` et lecture audio). Elle est basée
+sur le projet open source **[OpenMAIC](https://github.com/THU-MAIC/OpenMAIC)** (licence
+MIT), **préconfigurée pour Google Gemini** et avec une **interface en français**.
+
+> ⚠️ Contrairement à `index.html` et `enseignants.html` (pages autonomes), c'est une
+> **application serveur Next.js** : elle nécessite Node.js, une clé API et un hébergement
+> (Vercel / Docker / serveur Node). Elle **ne se publie pas** sur GitHub Pages.
+
+Démarrage rapide :
+
+```bash
+cd cours-interactif
+cp .env.example .env.local      # puis renseignez GOOGLE_API_KEY=...
+pnpm install
+pnpm dev                        # → http://localhost:3000
+```
+
+Guide complet (configuration, déploiement Vercel/Docker) : **[`cours-interactif/LISEZ-MOI.md`](./cours-interactif/LISEZ-MOI.md)**.
+
 ## Construire l'application Windows (.exe)
 
 ### Option A — Automatique (GitHub Actions, recommandé)
