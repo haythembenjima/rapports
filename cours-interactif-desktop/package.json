@@ -1,0 +1,56 @@
+{
+  "name": "cours-interactif-desktop",
+  "productName": "Cours Interactif",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Application de bureau Windows pour la création de cours interactifs (basée sur OpenMAIC).",
+  "author": "haythembenjima",
+  "license": "MIT",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never",
+    "dist:portable": "electron-builder --win portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.inspection.cours-interactif",
+    "productName": "Cours Interactif",
+    "files": [
+      "main.cjs",
+      "loading.html",
+      "package.json",
+      "icon.png",
+      "icon.ico"
+    ],
+    "extraResources": [
+      {
+        "from": "standalone",
+        "to": "standalone"
+      }
+    ],
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Cours Interactif",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "artifactName": "Cours-Interactif-Setup.${ext}"
+    }
+  }
+}
