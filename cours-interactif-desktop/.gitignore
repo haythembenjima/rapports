@@ -1,0 +1,5 @@
+node_modules/
+dist-desktop/
+# Charge utile assemblée par le workflow de build (serveur Next standalone)
+standalone/
+*.log

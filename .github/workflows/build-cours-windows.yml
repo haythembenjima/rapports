@@ -1,0 +1,86 @@
+name: Build Cours Interactif (Windows .exe)
+
+# Construit l'installateur Windows (.exe) de l'application « Cours Interactif »
+# (OpenMAIC empaqueté avec Electron). Le serveur Next standalone est intégré dans
+# l'app de bureau et lancé en local au démarrage.
+#
+# Déclenchement : automatique sur push de la branche cours-interactif touchant l'app, ou manuel.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ cours-interactif ]
+    paths:
+      - 'cours-interactif/**'
+      - 'cours-interactif-desktop/**'
+      - '.github/workflows/build-cours-windows.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install web app dependencies
+        working-directory: cours-interactif
+        run: pnpm install
+
+      - name: Build web app (Next standalone)
+        working-directory: cours-interactif
+        run: pnpm build
+
+      - name: Assemble standalone payload
+        shell: pwsh
+        working-directory: cours-interactif
+        run: |
+          $dest = "..\cours-interactif-desktop\standalone"
+          if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path ".next\standalone\*" -Destination $dest -Recurse -Force
+          Copy-Item -Path ".next\static" -Destination "$dest\.next\static" -Recurse -Force
+          if (Test-Path "public") {
+            Copy-Item -Path "public" -Destination "$dest\public" -Recurse -Force
+          }
+          Write-Host "Payload assemblé dans $dest"
+
+      - name: Install desktop wrapper dependencies
+        working-directory: cours-interactif-desktop
+        run: npm install
+
+      - name: Build Windows installer (NSIS)
+        working-directory: cours-interactif-desktop
+        run: npm run dist
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cours-interactif-windows-installer
+          path: cours-interactif-desktop/dist-desktop/*.exe
+          if-no-files-found: error
+
+      - name: Publish to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cours-interactif-desktop-v0.1.0
+          name: Cours Interactif — Application Windows
+          body: |
+            Installateur Windows (.exe) de l'application de création de cours interactifs (basée sur OpenMAIC).
+
+            Au premier lancement, ouvrez les **Paramètres** et saisissez votre clé **Google Gemini**
+            (https://aistudio.google.com/apikey). Une connexion Internet est requise pour la génération.
+          files: cours-interactif-desktop/dist-desktop/*.exe
+          prerelease: true
+          fail_on_unmatched_files: true
