@@ -110,7 +110,7 @@ function startServer(port) {
 }
 
 /** Attend que le serveur réponde, ou échoue tôt s'il plante. */
-function waitForServer(port, timeoutMs = 120000) {
+function waitForServer(port, timeoutMs = 300000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const fail = (msg) => reject(new Error(msg));
