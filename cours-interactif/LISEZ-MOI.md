@@ -61,6 +61,26 @@ pnpm build      # construit l'application optimisée
 pnpm start      # démarre le serveur de production (port 3000)
 ```
 
+## Application de bureau Windows (.exe)
+
+Une version **bureau** (Electron) est packagée dans le dossier
+[`../cours-interactif-desktop/`](../cours-interactif-desktop/). Elle embarque le serveur Next
+(lancé en local au démarrage) et s'installe comme un logiciel Windows classique.
+
+- **Téléchargement** : depuis les *Releases* du dépôt (asset `Cours-Interactif-Setup.exe`).
+- **Construction** : automatique via GitHub Actions sur un runner Windows
+  ([`.github/workflows/build-cours-windows.yml`](../.github/workflows/build-cours-windows.yml)).
+  Le `.exe` ne peut pas être compilé sous Linux/macOS (modules natifs `sharp` / `@napi-rs/canvas`
+  spécifiques à Windows).
+- **Clé API** : au premier lancement, ouvrez **Paramètres** et saisissez votre clé Google Gemini
+  (rien n'est codé en dur dans l'installateur).
+- **Build local** (sur une machine Windows, pour tester) :
+  ```bash
+  cd cours-interactif && pnpm install && pnpm build
+  # copier .next/standalone, .next/static et public dans ../cours-interactif-desktop/standalone
+  cd ../cours-interactif-desktop && npm install && npm run dist   # → dist-desktop/Cours-Interactif-Setup.exe
+  ```
+
 ## Configuration (Gemini & autres)
 
 La configuration se fait dans **`.env.local`** (copie de `.env.example`).

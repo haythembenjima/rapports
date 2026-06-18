@@ -106,6 +106,19 @@ MIT), **préconfigurée pour Google Gemini** et avec une **interface en françai
 > **application serveur Next.js** : elle nécessite Node.js, une clé API et un hébergement
 > (Vercel / Docker / serveur Node). Elle **ne se publie pas** sur GitHub Pages.
 
+### 🖥️ Application de bureau Windows (.exe)
+
+[![Télécharger Cours Interactif pour Windows](https://img.shields.io/badge/Télécharger-Cours%20Interactif%20(.exe)-7c3aed?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/haythembenjima/rapports/releases/download/cours-interactif-desktop-v0.1.0/Cours-Interactif-Setup.exe)
+
+Une version **bureau** (Electron) embarque le serveur et s'installe comme un logiciel Windows
+classique. Au premier lancement, ouvrez **Paramètres** et saisissez votre clé **Google Gemini**.
+Le `.exe` est construit automatiquement par GitHub Actions
+([workflow](./.github/workflows/build-cours-windows.yml)) et publié dans les
+[*Releases*](https://github.com/haythembenjima/rapports/releases) — détails dans
+[`cours-interactif-desktop/`](./cours-interactif-desktop/).
+
+### Version web (développement / serveur)
+
 Démarrage rapide :
 
 ```bash
