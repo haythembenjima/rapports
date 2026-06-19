@@ -275,7 +275,9 @@
                     <div id="status-indicator" class="text-xs opacity-90"><i class="fas fa-circle-notch fa-spin"></i> Connexion…</div>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
+            <!-- Contrôles réservés à l'inspecteur. Masqués quand la page est ouverte via un
+                 lien enseignant (…?i=CODE) : l'enseignant ne voit alors que le formulaire. -->
+            <div id="inspector-nav" class="flex items-center gap-2">
                 <a href="index.html" title="Revenir à l'application Rapport d'Inspection" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-file-lines"></i> Rapports d'inspection</a>
                 <button id="btn-myfiche" onclick="openAdmin()" class="hidden bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-list"></i> Liste des fiches</button>
                 <button onclick="openAccount()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-user"></i> <span id="btn-account-label">Compte</span></button>
@@ -2521,6 +2523,12 @@
         // Code inspecteur transmis par le lien partagé (…?i=CODE) : mémorisé pour les visites suivantes.
         const urlInsp = (new URLSearchParams(location.search).get('i') || '').trim().toUpperCase();
         if(urlInsp) localStorage.setItem(INSP_KEY, urlInsp);
+        // Page ouverte via un lien enseignant (…?i=CODE) : on masque tout l'accès inspecteur
+        // (Rapports d'inspection, Compte, Espace inspecteur) — l'enseignant ne voit que le formulaire.
+        if(urlInsp){
+            const nav = $('inspector-nav');
+            if(nav) nav.classList.add('hidden');
+        }
         if(!$('f-insp').value) $('f-insp').value = localStorage.getItem(INSP_KEY) || '';
         let connected = false;
         // Repli hors-ligne si la connexion n'aboutit pas rapidement (réseau lent, CDN bloqué…)
