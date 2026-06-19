@@ -268,16 +268,17 @@
     <!-- Barre supérieure -->
     <nav class="no-print ui-sans bg-indigo-700 text-white shadow-lg">
         <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-3">
+            <div id="brand" class="flex items-center gap-3 select-none" title="">
                 <i class="fas fa-address-card text-2xl"></i>
                 <div>
                     <div class="font-bold leading-tight">Base des enseignants — Gestion</div>
                     <div id="status-indicator" class="text-xs opacity-90"><i class="fas fa-circle-notch fa-spin"></i> Connexion…</div>
                 </div>
             </div>
-            <!-- Contrôles réservés à l'inspecteur. Masqués quand la page est ouverte via un
-                 lien enseignant (…?i=CODE) : l'enseignant ne voit alors que le formulaire. -->
-            <div id="inspector-nav" class="flex items-center gap-2">
+            <!-- Contrôles réservés à l'inspecteur. MASQUÉS par défaut : seul un compte inspecteur
+                 connecté (e-mail) les voit. Les enseignants (visiteurs anonymes) ne voient que le
+                 formulaire. L'inspecteur se connecte via un double-clic sur le titre (à gauche). -->
+            <div id="inspector-nav" class="hidden items-center gap-2">
                 <a href="index.html" title="Revenir à l'application Rapport d'Inspection" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-file-lines"></i> Rapports d'inspection</a>
                 <button id="btn-myfiche" onclick="openAdmin()" class="hidden bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-list"></i> Liste des fiches</button>
                 <button onclick="openAccount()" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg text-sm"><i class="fas fa-user"></i> <span id="btn-account-label">Compte</span></button>
@@ -1354,6 +1355,10 @@
             $('account-signed-in').classList.toggle('hidden', !u);
             $('account-signed-out').classList.toggle('hidden', !!u);
             if(u) $('account-email').innerText = u.email || '';
+            // Accès inspecteur (Rapports, Compte, Espace inspecteur) visible uniquement pour un
+            // compte inspecteur connecté ; masqué pour les enseignants (visiteurs anonymes).
+            const nav = $('inspector-nav');
+            if(nav){ nav.classList.toggle('hidden', !u); nav.classList.toggle('flex', !!u); }
         }
         window.openAccount = function(hint){
             $('account-hint').classList.toggle('hidden', typeof hint !== 'string');
@@ -2523,12 +2528,10 @@
         // Code inspecteur transmis par le lien partagé (…?i=CODE) : mémorisé pour les visites suivantes.
         const urlInsp = (new URLSearchParams(location.search).get('i') || '').trim().toUpperCase();
         if(urlInsp) localStorage.setItem(INSP_KEY, urlInsp);
-        // Page ouverte via un lien enseignant (…?i=CODE) : on masque tout l'accès inspecteur
-        // (Rapports d'inspection, Compte, Espace inspecteur) — l'enseignant ne voit que le formulaire.
-        if(urlInsp){
-            const nav = $('inspector-nav');
-            if(nav) nav.classList.add('hidden');
-        }
+        // Accès inspecteur : l'accès est masqué pour les enseignants. L'inspecteur ouvre sa fenêtre
+        // de connexion par un double-clic sur le titre (puis Firebase le garde connecté sur son appareil).
+        const brandEl = $('brand');
+        if(brandEl) brandEl.addEventListener('dblclick', () => { if(!emailUser()) window.openAccount("Connectez-vous avec votre compte inspecteur."); });
         if(!$('f-insp').value) $('f-insp').value = localStorage.getItem(INSP_KEY) || '';
         let connected = false;
         // Repli hors-ligne si la connexion n'aboutit pas rapidement (réseau lent, CDN bloqué…)
