@@ -396,11 +396,11 @@ function resolveLLMSelection(
 
 // Initialize default audio config
 const getDefaultAudioConfig = () => ({
-  ttsProviderId: 'browser-native-tts' as TTSProviderId,
-  ttsVoice: 'default',
+  ttsProviderId: 'azure-tts' as TTSProviderId,
+  ttsVoice: 'fr-FR-HenriNeural',
   ttsSpeed: 1.0,
   asrProviderId: 'browser-native' as ASRProviderId,
-  asrLanguage: 'zh',
+  asrLanguage: 'fr-FR',
   ttsProvidersConfig: {
     // Built-in providers default enabled:true — they only ever surface once
     // configured (API key or server-managed), so "enabled" is a user opt-OUT,
