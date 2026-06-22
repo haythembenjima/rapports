@@ -634,7 +634,7 @@
         let isLocalMode = false;
         let isAdmin = false;
         let currentReports = [];            // cache des rapports chargés (pour CSV / suppression / stats)
-        const DEFAULT_PASS = "admin2026", CONFIG_PATH = 'config_admin';
+        const DEFAULT_PASS = "admin2026", CONFIG_PATH = 'config/admin';   // chemin à 6 segments (document Firestore valide)
         let currentAdminPassHash = null;    // hash SHA-256 du mot de passe admin courant
         const DRAFT_KEY = 'inspection_draft_v2';
 

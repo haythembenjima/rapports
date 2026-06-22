@@ -52,6 +52,15 @@ service cloud.firestore {
       allow write: if request.auth != null && docId == 'insp_' + request.auth.uid;
     }
 
+    // ---- Configuration de l'application principale (hash du mot de passe
+    // administrateur, stocké dans config/admin). Lecture nécessaire pour
+    // valider le mot de passe à l'ouverture du mode admin ; écriture réservée
+    // aux utilisateurs connectés (l'app principale connecte chaque session). ----
+    match /artifacts/{appId}/public/data/config/{docId} {
+      allow read:  if signedIn();
+      allow write: if signedIn();
+    }
+
     // ---- Suivi de visite : bloc privé de l'inspecteur. ----
     match /artifacts/{appId}/public/data/enseignants_suivi/{ficheId} {
       allow read, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
