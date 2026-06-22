@@ -84,7 +84,10 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon --stacktrace && cd ..
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ks.jks
+          # Décodage tolérant : on retire tout espace/saut de ligne que le copier-coller du
+          # secret aurait pu introduire, avant de décoder le base64 du keystore.
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > ks.jks
+          if [ ! -s ks.jks ]; then echo "::error::ks.jks vide : le secret ANDROID_KEYSTORE_BASE64 est incomplet ou invalide. Recollez la valeur base64 complète."; exit 1; fi
           BT="$(ls -d "${ANDROID_SDK_ROOT:-$ANDROID_HOME}"/build-tools/*/ | sort -V | tail -1)"
           UNSIGNED=android/app/build/outputs/apk/release/app-release-unsigned.apk
           "${BT}zipalign" -f -p 4 "$UNSIGNED" aligned.apk
