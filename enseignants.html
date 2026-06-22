@@ -945,11 +945,11 @@
             const y = now.getFullYear();
             return now.getMonth() >= 8 ? `${y}/${y+1}` : `${y-1}/${y}`;   // l'année scolaire démarre en septembre
         }
-        function genCode(){
+        function genCode(n = 6){
             const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // sans 0/O/1/I (lisible au téléphone)
             let c = '';
-            const r = new Uint32Array(6); crypto.getRandomValues(r);
-            for(let i = 0; i < 6; i++) c += A[r[i] % A.length];
+            const r = new Uint32Array(n); crypto.getRandomValues(r);
+            for(let i = 0; i < n; i++) c += A[r[i] % A.length];
             return c;
         }
         function notify(msg, type = 'info', ms = 3500){
@@ -1430,7 +1430,9 @@
             const s = await getDoc(ref);
             if(s.exists() && s.data().code){ myCode = s.data().code; myEmailCfg = s.data().emailjs || null; }
             else {
-                myCode = genCode();
+                // Code inspecteur long (12 car.) : il circule dans les liens/QR partagés et
+                // route les fiches ; difficile à deviner. (Les codes existants restent valides.)
+                myCode = genCode(12);
                 await setDoc(ref, { code: myCode, email: currentUser.email || '', ownerUid: currentUser.uid, createdAt: serverTimestamp() });
             }
         }
