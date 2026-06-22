@@ -37,6 +37,23 @@ async function injectNative(file) {
 await injectNative('www/index.html');
 await injectNative('www/enseignants.html');
 
+// Retire la balise CSP (<meta http-equiv="Content-Security-Policy">) des pages embarquées
+// dans l'APK : la CSP est pensée pour le web public et n'est pas testée dans la WebView
+// Capacitor. (Elle reste active sur le site web.)
+async function stripCSP(file) {
+  try {
+    let html = await readFile(file, 'utf8');
+    const cleaned = html
+      .replace(/[ \t]*<!-- Politique de sécurité[^\n]*\n/, '')
+      .replace(/[ \t]*<meta http-equiv="Content-Security-Policy"[^>]*>\n?/, '');
+    if (cleaned !== html) { await writeFile(file, cleaned); console.log('CSP retirée de ' + file + ' (APK).'); }
+  } catch (e) {
+    console.log('Retrait CSP ignoré (' + file + ') :', e.message);
+  }
+}
+await stripCSP('www/index.html');
+await stripCSP('www/enseignants.html');
+
 try {
   await access('ocr');
   await cp('ocr', 'www/ocr', { recursive: true });
