@@ -33,6 +33,7 @@
       "enseignants.webmanifest",
       "enseignants-sw.js",
       "icons/**/*",
+      "vendor/**/*",
       "electron/**/*",
       "ocr/**/*"
     ],

@@ -14,6 +14,10 @@ for (const f of ['enseignants.webmanifest', 'enseignants-sw.js']) {
 }
 try { await access('icons'); await cp('icons', 'www/icons', { recursive: true }); } catch { /* facultatif */ }
 
+// Bibliothèques vendorisées (Tailwind + Font Awesome) servies en local : l'app installée
+// reste stylée même hors-ligne ou sur réseau filtré (sans CDN).
+try { await access('vendor'); await cp('vendor', 'www/vendor', { recursive: true }); console.log('vendor/ copié dans www/vendor'); } catch { console.log('Dossier vendor/ absent — CSS/icônes via CDN au runtime.'); }
+
 // Injecte <script src="native-entry.js"> (plugins Capacitor bundlés) dans le <head> des pages.
 // Le fichier native-entry.js est produit par esbuild (étape du workflow) ; le tag est inoffensif s'il manque.
 async function injectNative(file) {
