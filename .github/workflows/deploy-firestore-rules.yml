@@ -1,0 +1,55 @@
+name: Deploy Firestore Rules
+
+# Publie automatiquement les règles de sécurité Firestore (firestore.rules) sur le
+# projet « inspection-gestion » à chaque modification du fichier, ou à la demande.
+#
+# Prérequis (une seule fois) : créer un secret de dépôt FIREBASE_SERVICE_ACCOUNT
+# contenant le JSON d'un compte de service Firebase (rôle « Firebase Admin »).
+# Sans ce secret, le workflow ne fait rien (il n'échoue pas).
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'firestore.rules'
+      - 'firebase.json'
+      - '.firebaserc'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Détecter le compte de service Firebase
+        id: cfg
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$SA" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else echo "enabled=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Secret absent — déploiement ignoré
+        if: steps.cfg.outputs.enabled != 'true'
+        run: |
+          echo "::notice::Secret FIREBASE_SERVICE_ACCOUNT absent — règles non déployées."
+          echo "Ajoutez ce secret (JSON d'un compte de service, rôle Firebase Admin) pour activer le déploiement automatique."
+
+      - name: Authentification Google Cloud
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Setup Node.js
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Déployer les règles Firestore
+        if: steps.cfg.outputs.enabled == 'true'
+        run: npx --yes firebase-tools deploy --only firestore:rules --project inspection-gestion --non-interactive
