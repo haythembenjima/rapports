@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1d4ed8">
+    <link rel="manifest" href="index.webmanifest">
+    <link rel="icon" type="image/png" href="icons/enseignants-192.png">
+    <link rel="apple-touch-icon" href="icons/enseignants-192.png">
     <title>Rapport d'Évaluation - Inspection Pédagogique</title>
     <script src="vendor/tailwindcss-play.js"></script>
     <script src="vendor/fontawesome-6.0.0-all.min.js"></script>
-    <!-- Export PDF dédié -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Export Word (.docx natif) -->
-    <script src="https://cdn.jsdelivr.net/npm/docx@9.0.2/build/index.umd.js"></script>
+    <!-- Export PDF dédié (vendorisé : fonctionne hors-ligne / sans CDN) -->
+    <script src="vendor/html2pdf.bundle.min.js"></script>
+    <!-- Export Word (.docx natif) (vendorisé : fonctionne hors-ligne / sans CDN) -->
+    <script src="vendor/docx-9.0.2.umd.js"></script>
 
     <style>
         body { font-family: "Times New Roman", Times, serif; background-color: #f3f4f6; }
@@ -2854,6 +2858,14 @@ ${buildJargonGuide()}`;
             return null;
         }
         function isNativeApp(){ const b = nativeBridge(); return !!(b && b.isNative); }
+
+        // ---------- PWA : service worker ----------
+        // Installable + utilisable hors-ligne (page, libs vendorisées, icônes mises en cache).
+        // PRUDENCE : on n'enregistre PAS dans l'APK (WebView Capacitor) ni en file://, et le SW
+        // ne met en cache QUE nos propres fichiers — Firebase, l'IA et GitHub passent au réseau.
+        if('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !isNativeApp()){
+            window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+        }
         // Enregistre un blob sur mobile (Capacitor) ; renvoie un message décrivant l'emplacement, ou null si échec/non-natif.
         async function saveBlobNative(blob, filename){
             const b = nativeBridge();

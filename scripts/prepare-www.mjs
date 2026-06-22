@@ -8,8 +8,8 @@ await mkdir('www', { recursive: true });
 await copyFile('index.html', 'www/index.html');
 await copyFile('enseignants.html', 'www/enseignants.html');
 
-// Assets de la base des enseignants (manifeste, service worker, icônes) — copiés s'ils existent.
-for (const f of ['enseignants.webmanifest', 'enseignants-sw.js']) {
+// Assets PWA (manifestes + service workers des deux pages, icônes) — copiés s'ils existent.
+for (const f of ['enseignants.webmanifest', 'enseignants-sw.js', 'index.webmanifest', 'sw.js']) {
   try { await copyFile(f, 'www/' + f); } catch { /* facultatif */ }
 }
 try { await access('icons'); await cp('icons', 'www/icons', { recursive: true }); } catch { /* facultatif */ }
